@@ -1,0 +1,6 @@
+{
+  "name": "HMG Intranet",
+  "description": "Personal homepage featuring Unraid docker container links with Tailscale addresses, Redruth weather widget, and an AI-grounded news agent.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
