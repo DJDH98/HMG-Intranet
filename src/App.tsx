@@ -32,6 +32,7 @@ import { DEFAULT_SERVICES } from "./defaultServices";
 import { DockerService } from "./types";
 import WeatherWidget from "./components/WeatherWidget";
 import NewsAgent from "./components/NewsAgent";
+import StarshipWidget from "./components/StarshipWidget";
 import AuthGateway from "./components/AuthGateway";
 
 // Helper to calculate moon phase in plain JS
@@ -567,9 +568,10 @@ export default function App() {
         
         {/* Top rows: Weather & News side by side on desktop, stacked on mobile */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-          {/* Left Column (Weather) */}
-          <div className="lg:col-span-1">
+          {/* Left Column (Weather & Starship Telemetry) */}
+          <div className="lg:col-span-1 flex flex-col gap-6">
             <WeatherWidget />
+            <StarshipWidget />
           </div>
 
           {/* Right Column (News Stream) */}
@@ -591,7 +593,7 @@ export default function App() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-sm font-bold text-white tracking-tight">Docker Connections Shortcuts</h2>
+                    <h2 className="text-sm font-bold text-white tracking-tight">Docker Shortcuts</h2>
                     <span className="bg-[#1e1f22] border border-[#3f4147]/40 px-1.5 py-0.5 rounded-full text-[9px] text-stone-400 font-mono font-semibold">
                       {services.length} endpoints
                     </span>

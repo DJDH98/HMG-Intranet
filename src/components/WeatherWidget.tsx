@@ -42,142 +42,146 @@ export default function WeatherWidget() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/weather");
-      const result = await res.json();
-      if (result.success && result.data) {
-        const current = result.data.current;
-        const daily = result.data.daily;
-        const hourlyData = result.data.hourly;
-        
-        // Convert sunrise/sunset to simple hh:mm 24-hr time
-        const formatTime = (isoStr?: string) => {
-          if (!isoStr) return "";
-          try {
-            const date = new Date(isoStr);
-            return date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-          } catch (e) {
-            return "";
-          }
-        };
-
-        // Determine start index for the next 12 hours
-        const now = new Date();
-        const currentHour = now.getHours();
-        const currentDateStr = now.toLocaleDateString("en-CA"); // YYYY-MM-DD
-        const currentHourStr = `${currentDateStr}T${String(currentHour).padStart(2, "0")}:00`;
-        
-        let startIndex = hourlyData.time.findIndex((t: string) => t.startsWith(currentHourStr));
-        if (startIndex === -1) {
-          // Fallback: match by hour value
-          startIndex = hourlyData.time.findIndex((t: string) => {
-            const parts = t.split("T");
-            if (parts.length > 1) {
-              const hourVal = parseInt(parts[1].split(":")[0], 10);
-              return hourVal === currentHour;
-            }
-            return false;
-          });
-        }
-        if (startIndex === -1) startIndex = 0;
-
-        // Pull the next 12 hours starting from current hour
-        const hourlyForecasts: HourlyForecast[] = [];
-        for (let idx = startIndex; idx < startIndex + 12; idx++) {
-          if (idx < hourlyData.time.length) {
-            const tISO = hourlyData.time[idx];
-            const tempVal = hourlyData.temperature_2m[idx];
-            const codeVal = hourlyData.weather_code[idx];
-            const precipProb = hourlyData.precipitation_probability ? hourlyData.precipitation_probability[idx] : 0;
-            
-            try {
-              const d = new Date(tISO);
-              const formattedHour = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-              hourlyForecasts.push({
-                time: formattedHour,
-                temperature: tempVal,
-                weatherCode: codeVal,
-                precipProb
-              });
-            } catch (e) {
-              hourlyForecasts.push({
-                time: `+${idx - startIndex}h`,
-                temperature: tempVal,
-                weatherCode: codeVal,
-                precipProb
-              });
-            }
-          }
-        }
-
-        // Generate dynamic alerts/warnings based on actual realtime weather parameters:
-        const activeWarnings: WeatherWarning[] = [];
-        const windLevel = current.wind_speed_10m; // returned directly in mph
-        const weatherCode = current.weather_code;
-        const tempLevel = current.temperature_2m;
-
-        // 1. Heavy wind gale advisory
-        if (windLevel >= 22) {
-          activeWarnings.push({
-            severity: windLevel >= 32 ? "amber" : "yellow",
-            title: windLevel >= 32 ? "Amber Gale Warning" : "Yellow Wind Bulletin",
-            description: `Active gusts up to ${windLevel.toFixed(0)} mph detected in South Cornwall. Exercise high caution along elevated paths.`
-          });
-        }
-
-        // 2. Heavy precip warnings
-        if ([95, 96, 99].includes(weatherCode)) {
-          activeWarnings.push({
-            severity: "amber",
-            title: "Severe Lightning & Storm",
-            description: "High electrical active cells moving across Redruth region. Watch out for infrastructure interference."
-          });
-        } else if ([65, 82].includes(weatherCode)) {
-          activeWarnings.push({
-            severity: "yellow",
-            title: "Yellow Torrential Rain Warning",
-            description: "Violent heavy rain showers might result in instantaneous surface flooding across narrow lanes."
-          });
-        } else if ([75, 86].includes(weatherCode)) {
-          activeWarnings.push({
-            severity: "red",
-            title: "Severe Snowfall/Ice Blackout",
-            description: "Dense local snow accumulation. Avoid non-essential vehicular travel across Bodmin."
-          });
-        } else if ([45, 48].includes(weatherCode)) {
-          activeWarnings.push({
-            severity: "info",
-            title: "Dense Marine Fog Advisory",
-            description: "Heavy rolling coastal fog blankets low fields. Dramatically reduced sightlines."
-          });
-        }
-
-        // 3. extreme cold warning
-        if (tempLevel <= 3) {
-          activeWarnings.push({
-            severity: "yellow",
-            title: "Black Ice & Ground Frost",
-            description: "Air temperatures dipping below freezing point. Danger of icy road coatings on ungritted rural pathways."
-          });
-        }
-
-        setWeather({
-          temperature: current.temperature_2m,
-          apparentTemperature: current.apparent_temperature,
-          humidity: current.relative_humidity_2m,
-          precipitation: current.precipitation,
-          weatherCode: current.weather_code,
-          windSpeed: current.wind_speed_10m,
-          maxTemp: daily.temperature_2m_max[0],
-          minTemp: daily.temperature_2m_min[0],
-          sunrise: formatTime(daily.sunrise[0]),
-          sunset: formatTime(daily.sunset[0]),
-          isLoaded: true,
-          hourly: hourlyForecasts,
-          warnings: activeWarnings
-        });
-      } else {
-        throw new Error(result.error || "Failed to load weather data");
+      const latitude = 50.2333;
+      const longitude = -5.2333;
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,precipitation_probability,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=Europe/London&wind_speed_unit=mph`;
+      
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`Open-Meteo responded with status: ${res.status}`);
       }
+      const data = await res.json();
+      
+      const current = data.current;
+      const daily = data.daily;
+      const hourlyData = data.hourly;
+      
+      // Convert sunrise/sunset to simple hh:mm 24-hr time
+      const formatTime = (isoStr?: string) => {
+        if (!isoStr) return "";
+        try {
+          const date = new Date(isoStr);
+          return date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+        } catch (e) {
+          return "";
+        }
+      };
+
+      // Determine start index for the next 12 hours
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentDateStr = now.toLocaleDateString("en-CA"); // YYYY-MM-DD
+      const currentHourStr = `${currentDateStr}T${String(currentHour).padStart(2, "0")}:00`;
+      
+      let startIndex = hourlyData.time.findIndex((t: string) => t.startsWith(currentHourStr));
+      if (startIndex === -1) {
+        // Fallback: match by hour value
+        startIndex = hourlyData.time.findIndex((t: string) => {
+          const parts = t.split("T");
+          if (parts.length > 1) {
+            const hourVal = parseInt(parts[1].split(":")[0], 10);
+            return hourVal === currentHour;
+          }
+          return false;
+        });
+      }
+      if (startIndex === -1) startIndex = 0;
+
+      // Pull the next 12 hours starting from current hour
+      const hourlyForecasts: HourlyForecast[] = [];
+      for (let idx = startIndex; idx < startIndex + 12; idx++) {
+        if (idx < hourlyData.time.length) {
+          const tISO = hourlyData.time[idx];
+          const tempVal = hourlyData.temperature_2m[idx];
+          const codeVal = hourlyData.weather_code[idx];
+          const precipProb = hourlyData.precipitation_probability ? hourlyData.precipitation_probability[idx] : 0;
+          
+          try {
+            const d = new Date(tISO);
+            const formattedHour = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+            hourlyForecasts.push({
+              time: formattedHour,
+              temperature: tempVal,
+              weatherCode: codeVal,
+              precipProb
+            });
+          } catch (e) {
+            hourlyForecasts.push({
+              time: `+${idx - startIndex}h`,
+              temperature: tempVal,
+              weatherCode: codeVal,
+              precipProb
+            });
+          }
+        }
+      }
+
+      // Generate dynamic alerts/warnings based on actual realtime weather parameters:
+      const activeWarnings: WeatherWarning[] = [];
+      const windLevel = current.wind_speed_10m; // returned directly in mph
+      const weatherCode = current.weather_code;
+      const tempLevel = current.temperature_2m;
+
+      // 1. Heavy wind gale advisory
+      if (windLevel >= 22) {
+        activeWarnings.push({
+          severity: windLevel >= 32 ? "amber" : "yellow",
+          title: windLevel >= 32 ? "Amber Gale Warning" : "Yellow Wind Bulletin",
+          description: `Active gusts up to ${windLevel.toFixed(0)} mph detected in South Cornwall. Exercise high caution along elevated paths.`
+        });
+      }
+
+      // 2. Heavy precip warnings
+      if ([95, 96, 99].includes(weatherCode)) {
+        activeWarnings.push({
+          severity: "amber",
+          title: "Severe Lightning & Storm",
+          description: "High electrical active cells moving across Redruth region. Watch out for infrastructure interference."
+        });
+      } else if ([65, 82].includes(weatherCode)) {
+        activeWarnings.push({
+          severity: "yellow",
+          title: "Yellow Torrential Rain Warning",
+          description: "Violent heavy rain showers might result in instantaneous surface flooding across narrow lanes."
+        });
+      } else if ([75, 86].includes(weatherCode)) {
+        activeWarnings.push({
+          severity: "red",
+          title: "Severe Snowfall/Ice Blackout",
+          description: "Dense local snow accumulation. Avoid non-essential vehicular travel across Bodmin."
+        });
+      } else if ([45, 48].includes(weatherCode)) {
+        activeWarnings.push({
+          severity: "info",
+          title: "Dense Marine Fog Advisory",
+          description: "Heavy rolling coastal fog blankets low fields. Dramatically reduced sightlines."
+        });
+      }
+
+      // 3. extreme cold warning
+      if (tempLevel <= 3) {
+        activeWarnings.push({
+          severity: "yellow",
+          title: "Black Ice & Ground Frost",
+          description: "Air temperatures dipping below freezing point. Danger of icy road coatings on ungritted rural pathways."
+        });
+      }
+
+      setWeather({
+        temperature: current.temperature_2m,
+        apparentTemperature: current.apparent_temperature,
+        humidity: current.relative_humidity_2m,
+        precipitation: current.precipitation,
+        weatherCode: current.weather_code,
+        windSpeed: current.wind_speed_10m,
+        maxTemp: daily.temperature_2m_max[0],
+        minTemp: daily.temperature_2m_min[0],
+        sunrise: formatTime(daily.sunrise[0]),
+        sunset: formatTime(daily.sunset[0]),
+        isLoaded: true,
+        hourly: hourlyForecasts,
+        warnings: activeWarnings
+      });
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Weather fetch failed");
