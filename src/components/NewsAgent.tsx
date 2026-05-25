@@ -11,7 +11,8 @@ import {
   ExternalLink,
   AlertCircle,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Swords
 } from "lucide-react";
 import { NewsArticle } from "../types";
 
@@ -372,8 +373,8 @@ export default function NewsAgent() {
       return <Globe className="w-4 h-4 text-emerald-400" />;
     }
     if (cat.includes("game") || cat.includes("gaming")) return <Flame className="w-4 h-4 text-rose-400" />;
-    if (cat.includes("space")) return <Compass className="w-4 h-4 text-amber-405" />;
-    if (cat.includes("boxing")) return <span className="text-xs select-none">🥊</span>;
+    if (cat.includes("space")) return <Compass className="w-4 h-4 text-amber-500" />;
+    if (cat.includes("boxing")) return <Swords className="w-4 h-4 text-amber-500" />;
     return <Newspaper className="w-4 h-4 text-stone-400" />;
   };
 

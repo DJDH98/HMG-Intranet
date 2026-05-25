@@ -33,7 +33,8 @@ import { DockerService } from "./types";
 import WeatherWidget from "./components/WeatherWidget";
 import NewsAgent from "./components/NewsAgent";
 import StarshipWidget from "./components/StarshipWidget";
-import AuthGateway from "./components/AuthGateway";
+import GitHubLoginGateway from "./components/GitHubLoginGateway";
+import { useAuth, useUser } from "@clerk/clerk-react";
 
 // Helper to calculate moon phase in plain JS
 function getMoonPhaseInfo(date: Date) {
@@ -286,19 +287,9 @@ export default function App() {
   const [localTimeStr, setLocalTimeStr] = useState("");
   const [currentMoonPhase, setCurrentMoonPhase] = useState(() => getMoonPhaseInfo(new Date()));
 
-  // Secure Portal Gatekeeper states
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem("dalen_portal_auth_v1") === "true";
-  });
-  const [portalUser, setPortalUser] = useState<{name: string, email: string, picture?: string} | null>(() => {
-    const saved = localStorage.getItem("dalen_portal_user_v1");
-    try {
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
-  const [authError, setAuthError] = useState<string | null>(null);
+  // Clerk Authentication states
+  const { isLoaded: isAuthLoaded, isSignedIn, signOut } = useAuth();
+  const { user } = useUser();
 
   // Docker Shortcuts and settings collapsible states (isDockersExpanded starts true for undocked)
   const [isContainerSettingsOpen, setIsContainerSettingsOpen] = useState(false);
@@ -410,19 +401,17 @@ export default function App() {
     return matchesCategory && matchesSearch;
   });
 
-  if (!isAuthenticated) {
+  if (!isAuthLoaded) {
     return (
-      <AuthGateway 
-        onAuthSuccess={(user) => {
-          setIsAuthenticated(true);
-          setPortalUser(user);
-          localStorage.setItem("dalen_portal_auth_v1", "true");
-          localStorage.setItem("dalen_portal_user_v1", JSON.stringify(user));
-        }}
-        authError={authError}
-        setAuthError={setAuthError}
-      />
+      <div className="min-h-screen bg-[#1e1f22] text-[#dbdee1] flex flex-col items-center justify-center p-4 relative font-sans antialiased overflow-hidden select-none">
+        <div className="w-10 h-10 border-2 border-[#5865F2] border-t-transparent rounded-full animate-spin" />
+        <span className="text-xs font-mono text-stone-500 mt-4 tracking-wider">INITIALIZING SAFE GATEWAY...</span>
+      </div>
     );
+  }
+
+  if (!isSignedIn) {
+    return <GitHubLoginGateway />;
   }
 
   return (
@@ -544,21 +533,26 @@ export default function App() {
               )}
             </div>
 
-            {/* Logout / Session Lock Button */}
-            <button
-              onClick={() => {
-                localStorage.removeItem("dalen_portal_auth_v1");
-                localStorage.removeItem("dalen_portal_user_v1");
-                setIsAuthenticated(false);
-                setPortalUser(null);
-              }}
-              className="px-3 py-1.5 bg-[#4e5058]/40 hover:bg-rose-600/20 hover:text-rose-400 border border-[#3f4147]/50 rounded-xl text-xs font-sans text-stone-300 flex items-center gap-1.5 cursor-pointer transition-all duration-150 shadow-xs active:scale-[0.98]"
-              title="Lock portal and return to security login gate"
-              id="portal-logout-button"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Lock Portal</span>
-            </button>
+            {/* Clerk User Avatar and Sign Out Button */}
+            <div className="flex items-center gap-2">
+              {user?.imageUrl && (
+                <img 
+                  src={user.imageUrl} 
+                  alt={user.fullName || "User Profile"} 
+                  className="w-6.5 h-6.5 rounded-full ring-2 ring-[#5865F2]/45 shrink-0"
+                  referrerPolicy="no-referrer"
+                />
+              )}
+              <button
+                onClick={() => signOut()}
+                className="px-3 py-1.5 bg-[#4e5058]/40 hover:bg-rose-600/20 hover:text-rose-400 border border-[#3f4147]/50 rounded-xl text-xs font-sans text-stone-300 flex items-center gap-1.5 cursor-pointer transition-all duration-150 shadow-xs active:scale-[0.98]"
+                title="Sign out of the security portal"
+                id="portal-logout-button"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out</span>
+              </button>
+            </div>
           </div>
         </div>
       </header>
