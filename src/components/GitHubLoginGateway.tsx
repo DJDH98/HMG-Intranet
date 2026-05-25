@@ -17,11 +17,13 @@ export default function GitHubLoginGateway() {
     }
   }, []);
 
-  const getRedirectUrl = () => {
+  const getBaseUrl = () => {
     const origin = window.location.origin;
     const isGhPages = window.location.hostname.includes("github.io") || window.location.pathname.includes("/HMG-Intranet");
     return isGhPages ? `${origin}/HMG-Intranet/` : `${origin}/`;
   };
+
+  const getRedirectUrl = () => new URL("sso-callback", getBaseUrl()).toString();
 
   const handleGitHubLogin = async () => {
     if (!isLoaded) return;
@@ -29,10 +31,11 @@ export default function GitHubLoginGateway() {
     setErrorMsg(null);
     try {
       const targetUrl = getRedirectUrl();
+      const completeUrl = getBaseUrl();
       await signIn.authenticateWithRedirect({
         strategy: "oauth_github",
         redirectUrl: targetUrl,
-        redirectUrlComplete: targetUrl,
+        redirectUrlComplete: completeUrl,
       });
     } catch (err: any) {
       console.error("Error during GitHub login:", err);

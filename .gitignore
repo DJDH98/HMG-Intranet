@@ -1,4 +1,9 @@
 node_modules/
+.npm-cache/
+.vercel-local/
+.gh-config/
+.tools/
+.codex-git-tmp/
 build/
 dist/
 coverage/
@@ -6,3 +11,4 @@ coverage/
 *.log
 .env*
 !.env.example
+.vercel

@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ClerkProvider } from '@clerk/clerk-react';
+import { AuthenticateWithRedirectCallback, ClerkProvider } from '@clerk/clerk-react';
 import App from './App.tsx';
 import './index.css';
 
@@ -10,6 +10,8 @@ const getBasePath = () => {
   const isGhPages = window.location.hostname.includes("github.io") || window.location.pathname.includes("/HMG-Intranet");
   return isGhPages ? "/HMG-Intranet/" : "/";
 };
+
+const getCallbackPath = () => `${getBasePath()}sso-callback`;
 
 function Root() {
   if (!PUBLISHABLE_KEY) {
@@ -51,7 +53,7 @@ function Root() {
       signUpForceRedirectUrl={getBasePath()}
       syncSessionWithOrigin
     >
-      <App />
+      {window.location.pathname === getCallbackPath() ? <AuthenticateWithRedirectCallback /> : <App />}
     </ClerkProvider>
   );
 }
