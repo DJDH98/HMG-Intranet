@@ -26,7 +26,8 @@ import {
   Info,
   Layers,
   Sparkle,
-  LogOut
+  LogOut,
+  Shield
 } from "lucide-react";
 import { DEFAULT_SERVICES } from "./defaultServices";
 import { DockerService } from "./types";
@@ -35,6 +36,22 @@ import NewsAgent from "./components/NewsAgent";
 import StarshipWidget from "./components/StarshipWidget";
 import GitHubLoginGateway from "./components/GitHubLoginGateway";
 import { useAuth, useUser } from "@clerk/clerk-react";
+
+const ALLOWED_GITHUB_USERNAME = "djdh98";
+const ALLOWED_GITHUB_USER_ID = "228588658";
+
+function isAuthorizedGitHubUser(user: any) {
+  if (!user) return false;
+
+  const githubAccount = user.externalAccounts?.find((account: any) =>
+    account.provider === "oauth_github" || account.provider === "github"
+  );
+
+  const githubUsername = String(githubAccount?.username || user.username || "").toLowerCase();
+  const githubUserId = String(githubAccount?.providerUserId || githubAccount?.externalId || "");
+
+  return githubUsername === ALLOWED_GITHUB_USERNAME || githubUserId === ALLOWED_GITHUB_USER_ID;
+}
 
 // Helper to calculate moon phase in plain JS
 function getMoonPhaseInfo(date: Date) {
@@ -289,7 +306,7 @@ export default function App() {
 
   // Clerk Authentication states
   const { isLoaded: isAuthLoaded, isSignedIn, signOut } = useAuth();
-  const { user } = useUser();
+  const { isLoaded: isUserLoaded, user } = useUser();
 
   // Docker Shortcuts and settings collapsible states (isDockersExpanded starts true for undocked)
   const [isContainerSettingsOpen, setIsContainerSettingsOpen] = useState(false);
@@ -401,7 +418,7 @@ export default function App() {
     return matchesCategory && matchesSearch;
   });
 
-  if (!isAuthLoaded) {
+  if (!isAuthLoaded || (isSignedIn && !isUserLoaded)) {
     return (
       <div className="min-h-screen bg-[#1e1f22] text-[#dbdee1] flex flex-col items-center justify-center p-4 relative font-sans antialiased overflow-hidden select-none">
         <div className="w-10 h-10 border-2 border-[#5865F2] border-t-transparent rounded-full animate-spin" />
@@ -412,6 +429,35 @@ export default function App() {
 
   if (!isSignedIn) {
     return <GitHubLoginGateway />;
+  }
+
+  if (!isAuthorizedGitHubUser(user)) {
+    return (
+      <div className="min-h-screen bg-[#1e1f22] text-[#dbdee1] flex flex-col items-center justify-center p-4 relative font-sans antialiased overflow-hidden select-none">
+        <div className="w-full max-w-md bg-[#2b2d31] border border-red-900/40 rounded-3xl overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.5)]">
+          <div className="bg-[#1e1f22]/70 p-6 text-center border-b border-[#1e1f22]">
+            <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/25 text-red-400 flex items-center justify-center mx-auto mb-3.5 shadow-inner">
+              <Shield className="w-6 h-6" />
+            </div>
+            <span className="text-[10px] font-mono tracking-widest text-red-400 uppercase font-bold">
+              Access Refused
+            </span>
+            <p className="text-xs text-stone-400 font-sans mt-2 max-w-xs mx-auto">
+              This gateway is restricted to the DJDH98 GitHub account.
+            </p>
+          </div>
+          <div className="p-6 sm:p-8">
+            <button
+              onClick={() => signOut()}
+              className="w-full py-3 bg-[#4e5058]/40 hover:bg-rose-600/20 hover:text-rose-400 border border-[#3f4147]/50 rounded-xl text-xs font-mono text-stone-300 flex items-center justify-center gap-2 cursor-pointer transition-all duration-150 shadow-xs active:scale-[0.98]"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Sign Out</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -732,9 +778,8 @@ export default function App() {
 
       {/* Discord Styled Footer */}
       <footer className="max-w-[1600px] mx-auto px-6 mt-6 border-t border-[#1e1f22] pt-6 text-center text-stone-500 text-[10px] font-sans flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0">
-        <p>HMG Intranet homelab engine &bull; No active status circles (clean view)</p>
-        <p className="font-mono text-stone-550 uppercase tracking-widest text-[8px]">
-          Node Host Server &bull; Port 3000 &bull; Redruth Cornwall UK &bull; {tailscaleIp}
+        <p className="w-full font-mono text-stone-500 tracking-widest text-[9px]">
+          HMG Intranet | Ⓒ DJDH98 Redruth, Cornwall, UK
         </p>
       </footer>
 
