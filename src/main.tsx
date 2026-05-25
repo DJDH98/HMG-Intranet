@@ -44,7 +44,12 @@ function Root() {
   }
 
   return (
-    <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl={getBasePath()}>
+    <ClerkProvider 
+      publishableKey={PUBLISHABLE_KEY} 
+      afterSignOutUrl={getBasePath()}
+      signInForceRedirectUrl={getBasePath()}
+      signUpForceRedirectUrl={getBasePath()}
+    >
       <App />
     </ClerkProvider>
   );
