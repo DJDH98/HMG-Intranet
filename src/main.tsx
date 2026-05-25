@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AuthenticateWithRedirectCallback, ClerkProvider } from '@clerk/clerk-react';
+import { Analytics } from '@vercel/analytics/react';
 import App from './App.tsx';
 import './index.css';
 
@@ -12,6 +13,8 @@ const getBasePath = () => {
 };
 
 const getCallbackPath = () => `${getBasePath()}sso-callback`;
+
+document.documentElement.dataset.uiTheme = "nebula";
 
 function Root() {
   if (!PUBLISHABLE_KEY) {
@@ -33,7 +36,7 @@ function Root() {
             <p className="font-semibold text-white">How to fix this:</p>
             <ol className="list-decimal list-inside space-y-1.5 text-stone-400 font-sans">
               <li>Retrieve your Publishable Key from the Clerk Dashboard.</li>
-              <li>Go to AI Studio's <span className="font-semibold text-white">Settings &rarr; Secrets</span> menu.</li>
+              <li>Open your deployment environment settings.</li>
               <li>Add a secret with the key <code className="bg-[#2b2d31] px-1 py-0.5 rounded text-white font-mono">VITE_CLERK_PUBLISHABLE_KEY</code> and save.</li>
             </ol>
           </div>
@@ -54,6 +57,7 @@ function Root() {
       syncSessionWithOrigin
     >
       {window.location.pathname === getCallbackPath() ? <AuthenticateWithRedirectCallback /> : <App />}
+      <Analytics />
     </ClerkProvider>
   );
 }

@@ -173,7 +173,7 @@ function getFallbackArticles(source: string, category: string): NewsArticle[] {
   return templates.map((t) => ({
     title: t.title,
     summary: t.summary,
-    url: `https://www.google.com/search?q=${encodeURIComponent(t.title)}`,
+    url: `https://duckduckgo.com/?q=${encodeURIComponent(t.title)}`,
     category,
     source
   }));

@@ -1,1 +1,80 @@
 @import "tailwindcss";
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background: #09090b;
+  }
+
+  html[data-ui-theme="nebula"] body {
+    background:
+      radial-gradient(circle at 20% 0%, rgba(20, 184, 166, 0.12), transparent 26rem),
+      linear-gradient(180deg, #10131b 0%, #0b0f16 48%, #080b10 100%);
+  }
+}
+
+@layer components {
+  html[data-ui-theme] .text-\[8px\] { font-size: 0.625rem !important; line-height: 0.9rem !important; }
+  html[data-ui-theme] .text-\[9px\] { font-size: 0.6875rem !important; line-height: 1rem !important; }
+  html[data-ui-theme] .text-\[10px\] { font-size: 0.75rem !important; line-height: 1.1rem !important; }
+  html[data-ui-theme] .text-\[11px\] { font-size: 0.8125rem !important; line-height: 1.2rem !important; }
+  html[data-ui-theme] .text-xs { font-size: 0.8125rem !important; line-height: 1.25rem !important; }
+  html[data-ui-theme] .text-sm { font-size: 0.9375rem !important; line-height: 1.35rem !important; }
+
+  html[data-ui-theme] .rounded-xl,
+  html[data-ui-theme] .rounded-2xl,
+  html[data-ui-theme] .rounded-3xl {
+    border-radius: 0.625rem !important;
+  }
+
+  html[data-ui-theme] .shadow-md,
+  html[data-ui-theme] .shadow-sm,
+  html[data-ui-theme] .shadow-xs {
+    box-shadow: none !important;
+  }
+
+  html[data-ui-theme] input,
+  html[data-ui-theme] select,
+  html[data-ui-theme] button,
+  html[data-ui-theme] a {
+    outline-offset: 3px;
+  }
+
+  html[data-ui-theme="nebula"] .bg-\[\#313338\] { background-color: #0b0f16 !important; }
+  html[data-ui-theme="nebula"] .bg-\[\#2b2d31\] { background-color: #151a23 !important; }
+  html[data-ui-theme="nebula"] .bg-\[\#1e1f22\] { background-color: #0b0f16 !important; }
+  html[data-ui-theme="nebula"] .bg-\[\#1e1f22\]\/20,
+  html[data-ui-theme="nebula"] .bg-\[\#1e1f22\]\/30,
+  html[data-ui-theme="nebula"] .bg-\[\#1e1f22\]\/35,
+  html[data-ui-theme="nebula"] .bg-\[\#1e1f22\]\/40,
+  html[data-ui-theme="nebula"] .bg-\[\#1e1f22\]\/50,
+  html[data-ui-theme="nebula"] .bg-\[\#1e1f22\]\/55,
+  html[data-ui-theme="nebula"] .bg-\[\#1e1f22\]\/60,
+  html[data-ui-theme="nebula"] .bg-\[\#1e1f22\]\/70 { background-color: rgba(8, 13, 21, 0.8) !important; }
+  html[data-ui-theme="nebula"] .bg-\[\#35373c\],
+  html[data-ui-theme="nebula"] .bg-\[\#35373c\]\/50 { background-color: #1d2633 !important; }
+  html[data-ui-theme="nebula"] .bg-\[\#5865F2\],
+  html[data-ui-theme="nebula"] .hover\:bg-\[\#4752c4\]:hover { background-color: #14b8a6 !important; color: #04100f !important; }
+  html[data-ui-theme="nebula"] .bg-\[\#5865F2\]\/10,
+  html[data-ui-theme="nebula"] .bg-\[\#5865F2\]\/15,
+  html[data-ui-theme="nebula"] .bg-\[\#5865F2\]\/20 { background-color: rgba(20, 184, 166, 0.12) !important; }
+  html[data-ui-theme="nebula"] .text-\[\#5865F2\],
+  html[data-ui-theme="nebula"] .text-\[\#5586F2\] { color: #2dd4bf !important; }
+  html[data-ui-theme="nebula"] .border-\[\#1e1f22\],
+  html[data-ui-theme="nebula"] .border-\[\#1e1f22\]\/60,
+  html[data-ui-theme="nebula"] .border-\[\#1e1f22\]\/90,
+  html[data-ui-theme="nebula"] .border-\[\#1e1f22\]\/95,
+  html[data-ui-theme="nebula"] .border-\[\#3f4147\]\/20,
+  html[data-ui-theme="nebula"] .border-\[\#3f4147\]\/25,
+  html[data-ui-theme="nebula"] .border-\[\#3f4147\]\/30,
+  html[data-ui-theme="nebula"] .border-\[\#3f4147\]\/40,
+  html[data-ui-theme="nebula"] .border-\[\#3f4147\]\/50 { border-color: rgba(148, 163, 184, 0.22) !important; }
+  html[data-ui-theme="nebula"] .text-stone-550,
+  html[data-ui-theme="nebula"] .text-stone-500 { color: #8da0b6 !important; }
+  html[data-ui-theme="nebula"] .text-stone-400 { color: #b8c4d2 !important; }
+  html[data-ui-theme="nebula"] .text-stone-300,
+  html[data-ui-theme="nebula"] .text-\[\#dbdee1\] { color: #ecf5ff !important; }
+}
