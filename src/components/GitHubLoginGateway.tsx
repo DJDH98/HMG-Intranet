@@ -17,11 +17,7 @@ export default function GitHubLoginGateway() {
     }
   }, []);
 
-  const getBaseUrl = () => {
-    const origin = window.location.origin;
-    const isGhPages = window.location.hostname.includes("github.io") || window.location.pathname.includes("/HMG-Intranet");
-    return isGhPages ? `${origin}/HMG-Intranet/` : `${origin}/`;
-  };
+  const getBaseUrl = () => `${window.location.origin}/`;
 
   const getRedirectUrl = () => new URL("sso-callback", getBaseUrl()).toString();
 

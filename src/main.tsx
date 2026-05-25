@@ -7,10 +7,7 @@ import './index.css';
 
 const PUBLISHABLE_KEY = (import.meta as any).env.VITE_CLERK_PUBLISHABLE_KEY || "pk_test_c3VwZXJiLW11dHQtNDkuY2xlcmsuYWNjb3VudHMuZGV2JA";
 
-const getBasePath = () => {
-  const isGhPages = window.location.hostname.includes("github.io") || window.location.pathname.includes("/HMG-Intranet");
-  return isGhPages ? "/HMG-Intranet/" : "/";
-};
+const getBasePath = () => "/";
 
 const getCallbackPath = () => `${getBasePath()}sso-callback`;
 

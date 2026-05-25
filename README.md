@@ -1,8 +1,8 @@
 # HMG Intranet
 
-[![Live Site](https://img.shields.io/badge/Live%20Site-GitHub%20Pages-blue?style=for-the-badge)](https://djdh98.github.io/HMG-Intranet/)
+[![Live Site](https://img.shields.io/badge/Live%20Site-Vercel-black?style=for-the-badge)](https://hmgintranet.vercel.app/)
 
-**Live URL**: [https://djdh98.github.io/HMG-Intranet/](https://djdh98.github.io/HMG-Intranet/)
+**Live URL**: [https://hmgintranet.vercel.app/](https://hmgintranet.vercel.app/)
 
 A highly functional, custom-crafted personal homepage and command dashboard. Tailored for homelab administrators, it aggregates secure container access, real-time localized weather bulletins, upcoming space telemetry tracking, and filtered news intelligence into a unified, dark-themed responsive layout.
 
@@ -48,6 +48,7 @@ The interface is built with absolute precision on top of a midnight theme, desig
 - **Build System**: Vite with dynamic asset compilation.
 - **Styling**: Tailwind CSS utility classes using `@import` theme setups.
 - **Icon Library**: Custom crisp vector glyphs fully powered by `lucide-react`.
+- **Hosting**: Vercel production deployment at `hmgintranet.vercel.app`.
 
 ---
 

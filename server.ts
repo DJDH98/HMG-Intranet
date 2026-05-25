@@ -263,12 +263,6 @@ async function startServer() {
 
   // Vite integration
   if (process.env.NODE_ENV !== "production") {
-    // Automatically redirect root / requests to the Vite base path/subdirectory in development to prevent 404s
-    app.get("/", (req, res) => {
-      const query = req.url.split('?')[1];
-      res.redirect(`/HMG-Intranet/${query ? '?' + query : ''}`);
-    });
-
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
