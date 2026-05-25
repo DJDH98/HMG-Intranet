@@ -49,6 +49,7 @@ function Root() {
       afterSignOutUrl={getBasePath()}
       signInForceRedirectUrl={getBasePath()}
       signUpForceRedirectUrl={getBasePath()}
+      syncSessionWithOrigin
     >
       <App />
     </ClerkProvider>
