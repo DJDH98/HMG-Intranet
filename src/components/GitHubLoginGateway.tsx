@@ -17,15 +17,22 @@ export default function GitHubLoginGateway() {
     }
   }, []);
 
+  const getRedirectUrl = () => {
+    const origin = window.location.origin;
+    const isGhPages = window.location.hostname.includes("github.io") || window.location.pathname.includes("/HMG-Intranet");
+    return isGhPages ? `${origin}/HMG-Intranet/` : `${origin}/`;
+  };
+
   const handleGitHubLogin = async () => {
     if (!isLoaded) return;
     setIsLoggingIn(true);
     setErrorMsg(null);
     try {
+      const targetUrl = getRedirectUrl();
       await signIn.authenticateWithRedirect({
         strategy: "oauth_github",
-        redirectUrl: window.location.origin,
-        redirectUrlComplete: window.location.origin,
+        redirectUrl: targetUrl,
+        redirectUrlComplete: targetUrl,
       });
     } catch (err: any) {
       console.error("Error during GitHub login:", err);

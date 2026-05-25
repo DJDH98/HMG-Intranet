@@ -6,6 +6,11 @@ import './index.css';
 
 const PUBLISHABLE_KEY = (import.meta as any).env.VITE_CLERK_PUBLISHABLE_KEY;
 
+const getBasePath = () => {
+  const isGhPages = window.location.hostname.includes("github.io") || window.location.pathname.includes("/HMG-Intranet");
+  return isGhPages ? "/HMG-Intranet/" : "/";
+};
+
 function Root() {
   if (!PUBLISHABLE_KEY) {
     return (
@@ -39,7 +44,7 @@ function Root() {
   }
 
   return (
-    <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
+    <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl={getBasePath()}>
       <App />
     </ClerkProvider>
   );
