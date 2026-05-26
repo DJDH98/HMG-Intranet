@@ -4,7 +4,7 @@
 
 **Live URL**: [https://hmgintranet.vercel.app/](https://hmgintranet.vercel.app/)
 
-A highly functional, custom-crafted personal homepage and command dashboard. Tailored for homelab administrators, it aggregates secure container access, real-time localized weather bulletins, upcoming space telemetry tracking, and filtered news intelligence into a unified, dark-themed responsive layout.
+A highly functional, custom-crafted personal homepage and command dashboard. Tailored for homelab administrators, it aggregates secure container access (via Tailscale), real-time localized weather bulletins, upcoming space telemetry tracking, and filtered news intelligence into a unified, dark-themed responsive layout.
 
 ---
 
@@ -36,7 +36,7 @@ The interface is built with absolute precision on top of a midnight theme, desig
 
 ### 4. Grounded Multi-Source News Stream
 - **Category Filter Rows**: Allows instantaneous in-memory navigation across World, Tech, Gaming, Space, and Boxing.
-- **Interactive Multi-Channel Scraper**: Utilizes multi-stage client-side browser CORS proxies to scrape live Atom and RSS feeds from premium platforms like The Guardian, TechCrunch, Sky News, Eurogamer, and Space.com.
+- **Hybrid Fetching**: Uses Vercel Serverless Functions (`/api/news`) for reliable server-side RSS scraping when available, with graceful fallback to client-side CORS proxies + rich offline mocks.
 - **Robust Built-in Fallbacks**: Features complete offline mock items for each category to ensure a polished visual canvas even during offline or network-congested states.
 - **Boxing Category Glove Icon**: Embellished with an intuitive 🥊 branding.
 
@@ -44,29 +44,64 @@ The interface is built with absolute precision on top of a midnight theme, desig
 
 ## 🛠️ Tech Stack & Architecture
 
-- **Core Framework**: React 18+ with TypeScript typings.
-- **Build System**: Vite with dynamic asset compilation.
-- **Styling**: Tailwind CSS utility classes using `@import` theme setups.
-- **Icon Library**: Custom crisp vector glyphs fully powered by `lucide-react`.
-- **Hosting**: Vercel production deployment at `hmgintranet.vercel.app`.
+- **Core Framework**: React 19 + TypeScript.
+- **Build System**: Vite 6 with dynamic asset compilation.
+- **Styling**: Tailwind CSS v4 utility classes.
+- **Icon Library**: lucide-react.
+- **Auth**: Clerk + GitHub OAuth (hard allowlist for personal use).
+- **Hosting**: Vercel — static Vite build + Serverless Functions (`/api/news`, `/api/weather`) for reliable data fetching.
+- **No long-running server** in production. The old `server.ts` (Express) is kept only for optional local experimentation.
 
 ---
 
 ## 🔧 Getting Started & Development
-
-To launch the dashboard server environments:
 
 1. **Install Dependencies**:
    ```bash
    npm install
    ```
 
-2. **Run Development Server**:
+2. **Run Development Server** (static + client fallbacks):
    ```bash
    npm run dev
    ```
 
-3. **Production Compilation**:
+3. **Full local simulation with serverless functions** (recommended for testing `/api/*`):
+   ```bash
+   npx vercel dev
+   ```
+
+4. **Type check**:
+   ```bash
+   npm run lint
+   ```
+
+5. **Production build**:
    ```bash
    npm run build
    ```
+
+### Environment Variables
+
+- Copy `.env.example` → `.env` for local development.
+- The only required variable is `VITE_CLERK_PUBLISHABLE_KEY` (from your Clerk dashboard).
+- On Vercel: Project Settings → Environment Variables → add `VITE_CLERK_PUBLISHABLE_KEY` for **Production** and **Preview** scopes.
+
+---
+
+## 🚀 Deployment
+
+This project is deployed on Vercel as a **static site + serverless functions**.
+
+- Every push to `main` deploys to production.
+- Every push to any other branch (or PR) automatically creates a preview deployment with a unique URL.
+- Serverless functions in `/api` (`news.ts`, `weather.ts`) provide reliable RSS fetching without CORS proxy fragility.
+- The old Express `server.ts` is **not used** in the Vercel deployment.
+
+Live: https://hmgintranet.vercel.app/
+
+---
+
+## 📜 License
+
+Personal project — © DJDH98, Redruth, Cornwall, UK.

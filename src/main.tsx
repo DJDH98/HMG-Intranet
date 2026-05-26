@@ -5,7 +5,10 @@ import { Analytics } from '@vercel/analytics/react';
 import App from './App.tsx';
 import './index.css';
 
-const PUBLISHABLE_KEY = (import.meta as any).env.VITE_CLERK_PUBLISHABLE_KEY || "pk_test_c3VwZXJiLW11dHQtNDkuY2xlcmsuYWNjb3VudHMuZGV2JA";
+// Clerk publishable key MUST be provided via environment variable.
+// In Vercel: Project Settings → Environment Variables → VITE_CLERK_PUBLISHABLE_KEY
+// Never commit keys. The build will fail clearly if this is missing.
+const PUBLISHABLE_KEY = (import.meta as any).env.VITE_CLERK_PUBLISHABLE_KEY;
 
 const getBasePath = () => "/";
 
@@ -58,16 +61,17 @@ function Root() {
           <div className="space-y-2">
             <h2 className="text-lg font-bold text-white tracking-tight">Configuration Required</h2>
             <p className="text-xs text-stone-400">
-              The <code className="bg-[#1e1f22] px-1.5 py-0.5 rounded text-rose-400 font-mono">VITE_CLERK_PUBLISHABLE_KEY</code> environment variable is missing or empty.
+              The <code className="bg-[#1e1f22] px-1.5 py-0.5 rounded text-rose-400 font-mono">VITE_CLERK_PUBLISHABLE_KEY</code> environment variable is missing.
             </p>
           </div>
           <div className="bg-[#1e1f22] p-4 rounded-xl text-left border border-[#3f4147]/40 space-y-2 text-xs">
             <p className="font-semibold text-white">How to fix this:</p>
             <ol className="list-decimal list-inside space-y-1.5 text-stone-400 font-sans">
-              <li>Retrieve your Publishable Key from the Clerk Dashboard.</li>
-              <li>Open your deployment environment settings.</li>
-              <li>Add a secret with the key <code className="bg-[#2b2d31] px-1 py-0.5 rounded text-white font-mono">VITE_CLERK_PUBLISHABLE_KEY</code> and save.</li>
+              <li>Go to your Vercel project → Settings → Environment Variables.</li>
+              <li>Add <code className="bg-[#2b2d31] px-1 py-0.5 rounded text-white font-mono">VITE_CLERK_PUBLISHABLE_KEY</code> (use your Clerk Dashboard publishable key).</li>
+              <li>Redeploy (or push a new commit).</li>
             </ol>
+            <p className="text-[10px] text-stone-400 mt-2">Local dev: Add it to your <code>.env</code> file (see .env.example).</p>
           </div>
           <p className="text-[10px] font-mono text-stone-550">
             🔒 HMG Intranet Secure Shell
