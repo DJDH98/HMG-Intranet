@@ -1,4 +1,4 @@
-import { StrictMode } from 'react';
+import { StrictMode, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AuthenticateWithRedirectCallback, ClerkProvider } from '@clerk/clerk-react';
 import { Analytics } from '@vercel/analytics/react';
@@ -11,7 +11,39 @@ const getBasePath = () => "/";
 
 const getCallbackPath = () => `${getBasePath()}sso-callback`;
 
+const isCallbackPath = () => window.location.pathname.replace(/\/$/, "") === getCallbackPath();
+
 document.documentElement.dataset.uiTheme = "nebula";
+
+function OAuthCallbackPage() {
+  useEffect(() => {
+    const fallback = window.setTimeout(() => {
+      window.location.replace(getBasePath());
+    }, 8000);
+
+    return () => window.clearTimeout(fallback);
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-[#1e1f22] text-[#dbdee1] flex flex-col items-center justify-center p-6 text-center select-none font-sans">
+      <AuthenticateWithRedirectCallback
+        signInForceRedirectUrl={getBasePath()}
+        signUpForceRedirectUrl={getBasePath()}
+        signInFallbackRedirectUrl={getBasePath()}
+        signUpFallbackRedirectUrl={getBasePath()}
+      />
+      <div className="w-full max-w-sm bg-[#2b2d31] border border-[#3f4147]/40 p-8 rounded-3xl shadow-xl space-y-4">
+        <div className="w-10 h-10 border-2 border-[#5865F2] border-t-transparent rounded-full animate-spin mx-auto" />
+        <div className="space-y-1">
+          <h1 className="text-sm font-bold text-white tracking-tight">Completing GitHub sign-in</h1>
+          <p className="text-xs text-stone-400">
+            Returning to the HMG Intranet security gate...
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Root() {
   if (!PUBLISHABLE_KEY) {
@@ -53,7 +85,7 @@ function Root() {
       signUpForceRedirectUrl={getBasePath()}
       syncSessionWithOrigin
     >
-      {window.location.pathname === getCallbackPath() ? <AuthenticateWithRedirectCallback /> : <App />}
+      {isCallbackPath() ? <OAuthCallbackPage /> : <App />}
       <Analytics />
     </ClerkProvider>
   );
