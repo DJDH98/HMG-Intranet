@@ -132,11 +132,16 @@ export default function WeatherWidget() {
       }
 
       // 2. Heavy precip warnings
-      if ([95, 96, 99].includes(weatherCode)) {
+      // Check current weather code AND upcoming hourly forecasts for thunderstorms
+      const upcomingThunderstorm = hourlyForecasts.some(h => [95, 96, 99].includes(h.weatherCode));
+      if ([95, 96, 99].includes(weatherCode) || upcomingThunderstorm) {
+        const isCurrent = [95, 96, 99].includes(weatherCode);
         activeWarnings.push({
           severity: "amber",
           title: "Severe Lightning & Storm",
-          description: "High electrical active cells moving across Redruth region. Watch out for infrastructure interference."
+          description: isCurrent
+            ? "High electrical active cells moving across Redruth region. Watch out for infrastructure interference."
+            : "Thunderstorms are forecast within the next 12 hours. Watch out for infrastructure interference."
         });
       } else if ([65, 82].includes(weatherCode)) {
         activeWarnings.push({
