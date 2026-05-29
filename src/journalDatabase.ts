@@ -32,7 +32,10 @@ export function parseRedisJournalEntries(values: Record<string, unknown> | null 
 }
 
 export function hasJournalDatabaseEnv(env: NodeJS.ProcessEnv) {
-  return Boolean(env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN);
+  return Boolean(
+    (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) ||
+    (env.KV_REST_API_URL && env.KV_REST_API_TOKEN)
+  );
 }
 
 export function createRedisJournalDatabase(env: NodeJS.ProcessEnv = process.env): JournalDatabase {
@@ -41,8 +44,8 @@ export function createRedisJournalDatabase(env: NodeJS.ProcessEnv = process.env)
   }
 
   const redis = new Redis({
-    url: env.UPSTASH_REDIS_REST_URL!,
-    token: env.UPSTASH_REDIS_REST_TOKEN!
+    url: env.UPSTASH_REDIS_REST_URL || env.KV_REST_API_URL!,
+    token: env.UPSTASH_REDIS_REST_TOKEN || env.KV_REST_API_TOKEN!
   });
 
   const listEntries = async () => parseRedisJournalEntries(await redis.hgetall(JOURNAL_REDIS_KEY));
