@@ -54,7 +54,14 @@ function getFallbackArticles(source: string, category: string): NewsArticle[] {
     "Bad Left Hook": [ { title: "Strategic Blueprint: How Elite Contenders Solve the Tricky Southpaw Stance", summary: "A deep tactical breakdown of lead-foot battles, right-hand counter alignments, and lateral escapes against high-pressure southpaw jabs." }, { title: "Highly Anticipated Cruiserweight Rematch Officially Sets Riyadh Season Card Details", summary: "Undefeated dynamic athletes sign the dotted line for a secondary blockbuster autumn card under co-promoted terms." }, { title: "Middleweight Division Power Rankings: An Undisputed Challenger Emerges", summary: "Breaking down the recent spectacular performance by the middleweight's rising prospect and the potential pathways to a title shot." } ]
   };
   const templates = fallbacks[source] || [ { title: `${source} Bulletin: High-Fidelity Regional Intelligence Updated`, summary: `Live updates from ${source} covering recent events in the ${category} sector. Safe fallback content provided natively.` } ];
-  return templates.map((t) => ({ title: t.title, summary: t.summary, url: `https://duckduckgo.com/?q=${encodeURIComponent(t.title)}`, category, source }));
+  return templates.map((t) => ({
+    title: t.title,
+    summary: t.summary,
+    url: `https://duckduckgo.com/?q=${encodeURIComponent(t.title)}`,
+    category,
+    source,
+    publishedAt: ""
+  }));
 }
 
 async function fetchWithProxyFallback(url: string): Promise<string> {
@@ -62,6 +69,13 @@ async function fetchWithProxyFallback(url: string): Promise<string> {
   try { const r = await fetch(`https://corsproxy.org/?${encodeURIComponent(url)}`); if (r.ok) { const t = await r.text(); if (t && t.trim().startsWith("<")) return t; } } catch {}
   try { const r = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`); if (r.ok) { const t = await r.text(); if (t && t.trim().startsWith("<")) return t; } } catch {}
   throw new Error(`All public CORS proxies failed to retrieve feed: ${url}`);
+}
+
+function formatPublishedDate(value?: string) {
+  if (!value) return "Date unknown";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Date unknown";
+  return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 async function fetchFeedClientSide(url: string, category: string, source: string): Promise<NewsArticle[]> {
@@ -76,18 +90,38 @@ async function fetchFeedClientSide(url: string, category: string, source: string
       const titleSec = item.querySelector("title")?.textContent || "";
       let linkSec = item.querySelector("link")?.textContent || item.querySelector("link")?.getAttribute("href") || "";
       let descSec = item.querySelector("description")?.textContent || item.querySelector("encoded")?.textContent || "";
+      const publishedAt = item.querySelector("pubDate")?.textContent || item.querySelector("date")?.textContent || item.querySelector("dc\\:date")?.textContent || "";
       const cleanTitle = cleanHTMLString(titleSec);
       const cleanDesc = cleanHTMLString(descSec);
-      if (cleanTitle) articles.push({ title: cleanTitle, summary: cleanDesc || "No summary available.", url: linkSec.trim(), category, source });
+      if (cleanTitle) {
+        articles.push({
+          title: cleanTitle,
+          summary: cleanDesc || "No summary available.",
+          url: linkSec.trim(),
+          category,
+          source,
+          publishedAt: publishedAt.trim()
+        });
+      }
     });
     if (articles.length === 0) {
       (xmlDoc.querySelectorAll("entry") as any).forEach((entry: any) => {
         const titleSec = entry.querySelector("title")?.textContent || "";
         let linkSec = entry.querySelector("link")?.getAttribute("href") || entry.querySelector("link")?.textContent || "";
         let descSec = entry.querySelector("summary")?.textContent || entry.querySelector("content")?.textContent || "";
+        const publishedAt = entry.querySelector("published")?.textContent || entry.querySelector("updated")?.textContent || "";
         const cleanTitle = cleanHTMLString(titleSec);
         const cleanDesc = cleanHTMLString(descSec);
-        if (cleanTitle) articles.push({ title: cleanTitle, summary: cleanDesc || "No summary available.", url: linkSec.trim(), category, source });
+        if (cleanTitle) {
+          articles.push({
+            title: cleanTitle,
+            summary: cleanDesc || "No summary available.",
+            url: linkSec.trim(),
+            category,
+            source,
+            publishedAt: publishedAt.trim()
+          });
+        }
       });
     }
     return (articles.length ? articles : getFallbackArticles(source, category)).slice(0, 10);
@@ -303,6 +337,7 @@ export default function NewsAgent() {
                       <div>
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <span className="text-[9px] font-mono font-bold uppercase text-stone-300 bg-[#1e1f22] px-1.5 py-0.5 rounded border border-[#3f4147]/30">{article.source}</span>
+                          <span className="text-[9px] font-mono text-stone-500">{formatPublishedDate(article.publishedAt)}</span>
                         </div>
                         <h4 className="text-xs font-bold text-stone-100 leading-snug tracking-tight group-hover:text-teal-300 transition-colors">{article.title}</h4>
                         <p className="text-[10px] sm:text-[11px] text-stone-400 font-sans leading-relaxed mt-1.5 line-clamp-3 text-justify">{article.summary}</p>

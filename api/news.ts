@@ -60,6 +60,16 @@ async function fetchAndParseFeed(url: string, category: string, fallbackSource: 
           .trim();
       }
 
+      let publishedAt = "";
+      const publishedMatch =
+        block.match(/<pubDate[^>]*>([\s\S]*?)<\/pubDate>/i) ||
+        block.match(/<published[^>]*>([\s\S]*?)<\/published>/i) ||
+        block.match(/<updated[^>]*>([\s\S]*?)<\/updated>/i) ||
+        block.match(/<dc:date[^>]*>([\s\S]*?)<\/dc:date>/i);
+      if (publishedMatch) {
+        publishedAt = cleanDateText(publishedMatch[1]);
+      }
+
       title = title
         .replace(/&amp;/g, "&")
         .replace(/&lt;/g, "<")
@@ -69,7 +79,14 @@ async function fetchAndParseFeed(url: string, category: string, fallbackSource: 
         .trim();
 
       if (title && link) {
-        items.push({ title, summary: summary || "Read direct coverage at the publisher's primary source.", source: fallbackSource, url: link, category });
+        items.push({
+          title,
+          summary: summary || "Read direct coverage at the publisher's primary source.",
+          source: fallbackSource,
+          url: link,
+          category,
+          publishedAt
+        });
       }
       if (items.length >= 8) break;
     }
@@ -79,6 +96,14 @@ async function fetchAndParseFeed(url: string, category: string, fallbackSource: 
     console.error(`Error parsing feed from ${url}:`, err.message || err);
     return [];
   }
+}
+
+function cleanDateText(value: string) {
+  return value
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, "$1")
+    .replace(/<[^>]*>/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

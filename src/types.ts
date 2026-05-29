@@ -44,4 +44,5 @@ export interface NewsArticle {
   source: string;
   url: string;
   category: string;
+  publishedAt?: string;
 }
