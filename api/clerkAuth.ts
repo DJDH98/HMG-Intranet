@@ -1,4 +1,4 @@
-import { createClerkClient } from "@clerk/backend";
+import { verifyToken } from "@clerk/backend";
 
 export async function requireAuthenticatedRequest(req: any, res: any) {
   const secretKey = process.env.CLERK_SECRET_KEY;
@@ -9,30 +9,21 @@ export async function requireAuthenticatedRequest(req: any, res: any) {
     return false;
   }
 
-  const protocol = req.headers["x-forwarded-proto"] || "https";
-  const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost";
-  const requestUrl = `${protocol}://${host}${req.url || "/"}`;
-  const requestHeaders = new Headers();
+  const authorization = req.headers.authorization || req.headers.Authorization || "";
+  const token = typeof authorization === "string" && authorization.startsWith("Bearer ")
+    ? authorization.slice("Bearer ".length).trim()
+    : "";
 
-  for (const [key, value] of Object.entries(req.headers || {})) {
-    if (Array.isArray(value)) {
-      requestHeaders.set(key, value.join(", "));
-    } else if (typeof value === "string") {
-      requestHeaders.set(key, value);
-    }
+  if (!token) {
+    res.status(401).json({ success: false, error: "Unauthorized" });
+    return false;
   }
 
   try {
-    const clerkClient = createClerkClient({ secretKey, publishableKey });
-    const requestState = await clerkClient.authenticateRequest(
-      new Request(requestUrl, { headers: requestHeaders })
-    );
-
-    if (requestState.isAuthenticated) {
-      return true;
-    }
+    await verifyToken(token, { secretKey });
+    return true;
   } catch (error) {
-    console.error("Clerk request authentication failed:", error);
+    console.error("Clerk token verification failed:", error);
   }
 
   if (!res.headersSent) {
