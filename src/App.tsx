@@ -314,7 +314,7 @@ export default function App({ devBypassAuth = false }: AppProps) {
 
   // Clerk Authentication states. Local dev can bypass this when the publishable key is absent.
   const authState = devBypassAuth
-    ? { isLoaded: true, isSignedIn: true, signOut: () => undefined }
+    ? { isLoaded: true, isSignedIn: true, signOut: () => undefined, getToken: async () => null }
     : useAuth();
   const userState = devBypassAuth
     ? {
@@ -333,7 +333,7 @@ export default function App({ devBypassAuth = false }: AppProps) {
         }
       }
     : useUser();
-  const { isLoaded: isAuthLoaded, isSignedIn, signOut } = authState;
+  const { isLoaded: isAuthLoaded, isSignedIn, signOut, getToken } = authState;
   const { isLoaded: isUserLoaded, user } = userState;
 
   // Docker Shortcuts and settings collapsible states (isDockersExpanded starts true for undocked)
@@ -663,7 +663,7 @@ export default function App({ devBypassAuth = false }: AppProps) {
       </header>
 
       {isJournalRoute ? (
-        <JournalPage onBackHome={navigateHome} />
+        <JournalPage onBackHome={navigateHome} getAuthToken={getToken} />
       ) : (
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 w-full flex-grow flex flex-col gap-6 relative z-10">
         

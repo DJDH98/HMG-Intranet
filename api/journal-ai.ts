@@ -2,12 +2,15 @@ import {
   generateJournalAiText,
   isJournalAiAction
 } from "../src/journalAi";
+import { requireAuthenticatedRequest } from "./clerkAuth";
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ success: false, error: "Method not allowed" });
   }
+
+  if (!(await requireAuthenticatedRequest(req, res))) return;
 
   const apiKey = process.env.GOOGLE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
   if (!apiKey) {

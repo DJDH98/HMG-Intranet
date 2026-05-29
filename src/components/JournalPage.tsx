@@ -22,6 +22,7 @@ import {
 
 interface JournalPageProps {
   onBackHome: () => void;
+  getAuthToken?: () => Promise<string | null>;
 }
 
 const formatLongDate = (dateKey: string) => {
@@ -34,7 +35,7 @@ const formatLongDate = (dateKey: string) => {
   });
 };
 
-export default function JournalPage({ onBackHome }: JournalPageProps) {
+export default function JournalPage({ onBackHome, getAuthToken }: JournalPageProps) {
   const todayKey = toDateKey(new Date());
   const [entries, setEntries] = useState<JournalEntry[]>(() => loadJournalEntries(localStorage));
   const [selectedDate, setSelectedDate] = useState(todayKey);
@@ -54,6 +55,11 @@ export default function JournalPage({ onBackHome }: JournalPageProps) {
   const calendarDays = useMemo(() => getMonthCalendarDays(visibleMonth), [visibleMonth]);
   const canGoNextMonth = toDateKey(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1)) <= todayKey.slice(0, 7) + "-01";
 
+  const buildAuthHeaders = async () => {
+    const token = await getAuthToken?.();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   useEffect(() => {
     saveJournalEntries(localStorage, entries);
   }, [entries]);
@@ -63,7 +69,9 @@ export default function JournalPage({ onBackHome }: JournalPageProps) {
 
     async function loadDatabaseEntries() {
       try {
-        const response = await fetch("/api/journal-entries");
+        const response = await fetch("/api/journal-entries", {
+          headers: await buildAuthHeaders()
+        });
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok || !data.success || !Array.isArray(data.entries)) {
@@ -80,7 +88,10 @@ export default function JournalPage({ onBackHome }: JournalPageProps) {
           for (const entry of localEntries) {
             const saveResponse = await fetch("/api/journal-entries", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: {
+                "Content-Type": "application/json",
+                ...(await buildAuthHeaders())
+              },
               body: JSON.stringify({
                 date: entry.date,
                 title: entry.title,
@@ -148,7 +159,10 @@ export default function JournalPage({ onBackHome }: JournalPageProps) {
       try {
         const response = await fetch("/api/journal-entries", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(await buildAuthHeaders())
+          },
           body: JSON.stringify({
             date: selectedDate,
             title: title || "Untitled entry",
@@ -180,7 +194,11 @@ export default function JournalPage({ onBackHome }: JournalPageProps) {
       setDatabaseStatus("saving");
       setDatabaseMessage("Deleting from database...");
 
-      fetch(`/api/journal-entries?date=${encodeURIComponent(selectedDate)}`, { method: "DELETE" })
+      buildAuthHeaders()
+        .then((headers) => fetch(`/api/journal-entries?date=${encodeURIComponent(selectedDate)}`, {
+          method: "DELETE",
+          headers
+        }))
         .then(async (response) => {
           const data = await response.json().catch(() => ({}));
           if (!response.ok || !data.success || !Array.isArray(data.entries)) {
@@ -206,7 +224,10 @@ export default function JournalPage({ onBackHome }: JournalPageProps) {
     try {
       const response = await fetch("/api/journal-ai", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(await buildAuthHeaders())
+        },
         body: JSON.stringify({ action, entry: body })
       });
       const data = await response.json().catch(() => ({}));

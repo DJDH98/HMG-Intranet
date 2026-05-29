@@ -6,8 +6,11 @@ import {
   upsertJournalEntry,
   type JournalEntry
 } from "../src/journalStorage";
+import { requireAuthenticatedRequest } from "./clerkAuth";
 
 export default async function handler(req: any, res: any) {
+  if (!(await requireAuthenticatedRequest(req, res))) return;
+
   if (!hasJournalDatabaseEnv(process.env)) {
     return res.status(503).json({
       success: false,
