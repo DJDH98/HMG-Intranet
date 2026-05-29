@@ -1,12 +1,12 @@
 import {
   createRedisJournalDatabase,
   hasJournalDatabaseEnv
-} from "../src/journalDatabase";
+} from "../src/journalDatabase.js";
 import {
   upsertJournalEntry,
   type JournalEntry
-} from "../src/journalStorage";
-import { requireAuthenticatedRequest } from "./clerkAuth";
+} from "../src/journalStorage.js";
+import { requireAuthenticatedRequest } from "./clerkAuth.js";
 
 export default async function handler(req: any, res: any) {
   if (!(await requireAuthenticatedRequest(req, res))) return;

@@ -1,8 +1,8 @@
 import {
   generateJournalAiText,
   isJournalAiAction
-} from "../src/journalAi";
-import { requireAuthenticatedRequest } from "./clerkAuth";
+} from "../src/journalAi.js";
+import { requireAuthenticatedRequest } from "./clerkAuth.js";
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
