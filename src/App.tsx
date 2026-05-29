@@ -27,7 +27,9 @@ import {
   Layers,
   Sparkle,
   LogOut,
-  Shield
+  Shield,
+  BookOpenText,
+  Home
 } from "lucide-react";
 import { DEFAULT_SERVICES } from "./defaultServices";
 import { DockerService } from "./types";
@@ -35,6 +37,7 @@ import WeatherWidget from "./components/WeatherWidget";
 import NewsAgent from "./components/NewsAgent";
 import StarshipWidget from "./components/StarshipWidget";
 import GitHubLoginGateway from "./components/GitHubLoginGateway";
+import JournalPage from "./components/JournalPage";
 import { useAuth, useUser } from "@clerk/clerk-react";
 
 const ALLOWED_GITHUB_USERNAME = "djdh98";
@@ -276,7 +279,11 @@ function LargeMoonGraphic({ iconType }: { iconType: string }) {
   );
 }
 
-export default function App() {
+interface AppProps {
+  devBypassAuth?: boolean;
+}
+
+export default function App({ devBypassAuth = false }: AppProps) {
   // Service configuration with LocalStorage persistence
   const [services, setServices] = useState<DockerService[]>(() => {
     const saved = localStorage.getItem("dalen_services");
@@ -303,10 +310,31 @@ export default function App() {
   const [timeOfDay, setTimeOfDay] = useState("");
   const [localTimeStr, setLocalTimeStr] = useState("");
   const [currentMoonPhase, setCurrentMoonPhase] = useState(() => getMoonPhaseInfo(new Date()));
+  const [activeRoute, setActiveRoute] = useState(() => window.location.hash || "#/");
 
-  // Clerk Authentication states
-  const { isLoaded: isAuthLoaded, isSignedIn, signOut } = useAuth();
-  const { isLoaded: isUserLoaded, user } = useUser();
+  // Clerk Authentication states. Local dev can bypass this when the publishable key is absent.
+  const authState = devBypassAuth
+    ? { isLoaded: true, isSignedIn: true, signOut: () => undefined, getToken: async () => null }
+    : useAuth();
+  const userState = devBypassAuth
+    ? {
+        isLoaded: true,
+        user: {
+          fullName: "Local Dev",
+          username: ALLOWED_GITHUB_USERNAME,
+          imageUrl: "",
+          externalAccounts: [
+            {
+              provider: "oauth_github",
+              username: ALLOWED_GITHUB_USERNAME,
+              providerUserId: ALLOWED_GITHUB_USER_ID
+            }
+          ]
+        }
+      }
+    : useUser();
+  const { isLoaded: isAuthLoaded, isSignedIn, signOut, getToken } = authState;
+  const { isLoaded: isUserLoaded, user } = userState;
 
   // Docker Shortcuts and settings collapsible states (isDockersExpanded starts true for undocked)
   const [isContainerSettingsOpen, setIsContainerSettingsOpen] = useState(false);
@@ -328,6 +356,12 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("dalen_tailscale_ip", tailscaleIp);
   }, [tailscaleIp]);
+
+  useEffect(() => {
+    const handleHashChange = () => setActiveRoute(window.location.hash || "#/");
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
 
   // Handle dynamic greetings depending on time
   useEffect(() => {
@@ -418,6 +452,18 @@ export default function App() {
     return matchesCategory && matchesSearch;
   });
 
+  const isJournalRoute = activeRoute === "#/journal";
+
+  const navigateHome = () => {
+    window.location.hash = "#/";
+    setActiveRoute("#/");
+  };
+
+  const navigateJournal = () => {
+    window.location.hash = "#/journal";
+    setActiveRoute("#/journal");
+  };
+
   if (!isAuthLoaded || (isSignedIn && !isUserLoaded)) {
     return (
       <div className="min-h-screen bg-[#1e1f22] text-[#dbdee1] flex flex-col items-center justify-center p-4 relative font-sans antialiased overflow-hidden select-none">
@@ -484,6 +530,19 @@ export default function App() {
 
           {/* Tailscale Configurator, Live Clock, Moon, Custom Unraid Deep Link */}
           <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={isJournalRoute ? navigateHome : navigateJournal}
+              className={`px-3.5 py-1.5 border rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors duration-150 shrink-0 cursor-pointer ${
+                isJournalRoute
+                  ? "bg-[#1e1f22] border-[#3f4147]/40 text-stone-200 hover:bg-[#35373c]/50"
+                  : "bg-[#4e5058]/40 border-[#3f4147]/50 text-stone-300 hover:bg-[#5865F2]/20 hover:text-white"
+              }`}
+              id="journal-header-link"
+            >
+              {isJournalRoute ? <Home className="w-3.5 h-3.5" /> : <BookOpenText className="w-3.5 h-3.5" />}
+              <span>{isJournalRoute ? "Dashboard" : "Journal"}</span>
+            </button>
+
             {/* Real Unraid WebUI deep link for Dalen */}
             <a
               href="http://100.66.186.68:9090/"
@@ -603,7 +662,9 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Grid Block */}
+      {isJournalRoute ? (
+        <JournalPage onBackHome={navigateHome} getAuthToken={getToken} />
+      ) : (
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 w-full flex-grow flex flex-col gap-6 relative z-10">
         
         {/* Top rows: Weather & News side by side on desktop, stacked on mobile */}
@@ -775,6 +836,7 @@ export default function App() {
           </section>
         </div>
       </main>
+      )}
 
       {/* Discord Styled Footer */}
       <footer className="max-w-[1600px] mx-auto px-6 mt-6 border-t border-[#1e1f22] pt-6 text-center text-stone-500 text-[10px] font-sans flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0">

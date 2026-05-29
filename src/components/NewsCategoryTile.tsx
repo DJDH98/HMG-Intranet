@@ -3,6 +3,7 @@ import { ExternalLink } from "lucide-react";
 import { NewsArticle } from "../types";
 
 interface CategoryTileProps {
+  key?: React.Key;
   category: string;
   articles: NewsArticle[];
   isExpanded: boolean;

@@ -7,8 +7,9 @@ import './index.css';
 
 // Clerk publishable key MUST be provided via environment variable.
 // In Vercel: Project Settings → Environment Variables → VITE_CLERK_PUBLISHABLE_KEY
-// Never commit keys. The build will fail clearly if this is missing.
+// Never commit keys. Production still fails clearly if this is missing.
 const PUBLISHABLE_KEY = (import.meta as any).env.VITE_CLERK_PUBLISHABLE_KEY;
+const isLocalDev = Boolean((import.meta as any).env.DEV);
 
 const getBasePath = () => "/";
 
@@ -50,6 +51,15 @@ function OAuthCallbackPage() {
 
 function Root() {
   if (!PUBLISHABLE_KEY) {
+    if (isLocalDev) {
+      return (
+        <>
+          <App devBypassAuth />
+          <Analytics />
+        </>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-[#1e1f22] text-[#dbdee1] flex flex-col items-center justify-center p-6 text-center select-none font-sans">
         <div className="max-w-md w-full bg-[#2b2d31] border border-red-900/40 p-8 rounded-3xl shadow-xl space-y-6">
