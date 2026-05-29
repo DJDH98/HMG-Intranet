@@ -22,15 +22,21 @@ export async function requireAuthenticatedRequest(req: any, res: any) {
     }
   }
 
-  const clerkClient = createClerkClient({ secretKey, publishableKey });
-  const requestState = await clerkClient.authenticateRequest(
-    new Request(requestUrl, { headers: requestHeaders })
-  );
+  try {
+    const clerkClient = createClerkClient({ secretKey, publishableKey });
+    const requestState = await clerkClient.authenticateRequest(
+      new Request(requestUrl, { headers: requestHeaders })
+    );
 
-  if (!requestState.isAuthenticated) {
-    res.status(401).json({ success: false, error: "Unauthorized" });
-    return false;
+    if (requestState.isAuthenticated) {
+      return true;
+    }
+  } catch (error) {
+    console.error("Clerk request authentication failed:", error);
   }
 
-  return true;
+  if (!res.headersSent) {
+    res.status(401).json({ success: false, error: "Unauthorized" });
+  }
+  return false;
 }
