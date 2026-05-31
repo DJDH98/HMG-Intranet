@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent, MouseEvent } from "react";
+import { useState, useEffect, useRef, FormEvent, MouseEvent } from "react";
 import { 
   Server, 
   Image, 
@@ -29,7 +29,8 @@ import {
   LogOut,
   Shield,
   BookOpenText,
-  Home
+  Home,
+  Newspaper
 } from "lucide-react";
 import { DEFAULT_SERVICES } from "./defaultServices";
 import { DockerService } from "./types";
@@ -42,6 +43,7 @@ import { useAuth, useUser } from "@clerk/clerk-react";
 
 const ALLOWED_GITHUB_USERNAME = "djdh98";
 const ALLOWED_GITHUB_USER_ID = "228588658";
+type ServiceHealthStatus = "checking" | "online" | "offline" | "private" | "no-tailscale";
 
 function isAuthorizedGitHubUser(user: any) {
   if (!user) return false;
@@ -311,6 +313,9 @@ export default function App({ devBypassAuth = false }: AppProps) {
   const [localTimeStr, setLocalTimeStr] = useState("");
   const [currentMoonPhase, setCurrentMoonPhase] = useState(() => getMoonPhaseInfo(new Date()));
   const [activeRoute, setActiveRoute] = useState(() => window.location.hash || "#/");
+  const [isMobileUtilitiesOpen, setIsMobileUtilitiesOpen] = useState(false);
+  const [serviceHealth, setServiceHealth] = useState<Record<string, ServiceHealthStatus>>({});
+  const headerRef = useRef<HTMLElement | null>(null);
 
   // Clerk Authentication states. Local dev can bypass this when the publishable key is absent.
   const authState = devBypassAuth
@@ -362,6 +367,61 @@ export default function App({ devBypassAuth = false }: AppProps) {
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
+
+  useEffect(() => {
+    if (!isMobileUtilitiesOpen) return;
+
+    const closeMobileUtilitiesOnOutsideTap = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Node && headerRef.current?.contains(target)) return;
+      setIsMobileUtilitiesOpen(false);
+    };
+
+    document.addEventListener("pointerdown", closeMobileUtilitiesOnOutsideTap);
+    return () => document.removeEventListener("pointerdown", closeMobileUtilitiesOnOutsideTap);
+  }, [isMobileUtilitiesOpen]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (window.location.protocol === "https:") {
+      setServiceHealth(Object.fromEntries(services.map(service => [service.id, "private" as ServiceHealthStatus])));
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setServiceHealth(Object.fromEntries(services.map(service => [service.id, "checking" as ServiceHealthStatus])));
+
+    const controllers = services.map((service) => {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 3500);
+
+      fetch(`http://${tailscaleIp}:${service.port}/`, {
+        mode: "no-cors",
+        cache: "no-store",
+        signal: controller.signal
+      })
+        .then(() => {
+          if (!cancelled) {
+            setServiceHealth(prev => ({ ...prev, [service.id]: "online" }));
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setServiceHealth(prev => ({ ...prev, [service.id]: "offline" }));
+          }
+        })
+        .finally(() => window.clearTimeout(timeout));
+
+      return controller;
+    });
+
+    return () => {
+      cancelled = true;
+      controllers.forEach(controller => controller.abort());
+    };
+  }, [services, tailscaleIp]);
 
   // Handle dynamic greetings depending on time
   useEffect(() => {
@@ -453,15 +513,65 @@ export default function App({ devBypassAuth = false }: AppProps) {
   });
 
   const isJournalRoute = activeRoute === "#/journal";
+  const isDockerRoute = activeRoute === "#docker-section";
+  const isNewsRoute = activeRoute === "#news-section";
+  const isHomeRoute = !isJournalRoute && !isDockerRoute && !isNewsRoute;
+  const isTailnetUnavailable = services.length > 0 && services.every(service => serviceHealth[service.id] === "offline");
+  const getServiceHealthMeta = (status: ServiceHealthStatus = "checking") => {
+    switch (status) {
+      case "online":
+        return {
+          label: "Online",
+          title: "Reachable from this browser",
+          dotClass: "bg-emerald-400",
+          textClass: "text-emerald-300",
+          ringClass: "border-emerald-500/20 bg-emerald-500/10"
+        };
+      case "offline":
+        return {
+          label: "Offline",
+          title: "No response from this browser. Check Tailscale and the service.",
+          dotClass: "bg-rose-400",
+          textClass: "text-rose-300",
+          ringClass: "border-rose-500/20 bg-rose-500/10"
+        };
+      case "private":
+        return {
+          label: "Tailscale",
+          title: "Private service. Hosted HTTPS pages cannot reliably ping Tailnet HTTP services.",
+          dotClass: "bg-sky-400",
+          textClass: "text-sky-300",
+          ringClass: "border-sky-500/20 bg-sky-500/10"
+        };
+      case "no-tailscale":
+        return {
+          label: "No Tailscale",
+          title: "Tailscale not connected on this machine, or this Tailnet IP is unreachable.",
+          dotClass: "bg-orange-400",
+          textClass: "text-orange-300",
+          ringClass: "border-orange-500/20 bg-orange-500/10"
+        };
+      default:
+        return {
+          label: "Check",
+          title: "Checking reachability from this browser",
+          dotClass: "bg-stone-500 animate-pulse",
+          textClass: "text-stone-400",
+          ringClass: "border-[#3f4147]/30 bg-[#1e1f22]/60"
+        };
+    }
+  };
 
   const navigateHome = () => {
     window.location.hash = "#/";
     setActiveRoute("#/");
+    setIsMobileUtilitiesOpen(false);
   };
 
   const navigateJournal = () => {
     window.location.hash = "#/journal";
     setActiveRoute("#/journal");
+    setIsMobileUtilitiesOpen(false);
   };
 
   if (!isAuthLoaded || (isSignedIn && !isUserLoaded)) {
@@ -507,29 +617,161 @@ export default function App({ devBypassAuth = false }: AppProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#313338] text-[#dbdee1] flex flex-col font-sans selection:bg-[#5865F2] selection:text-white pb-12 antialiased">
+    <div className="min-h-screen bg-[#313338] text-[#dbdee1] flex flex-col font-sans selection:bg-[#5865F2] selection:text-white pb-24 md:pb-12 antialiased">
       {/* Subtle Ambient top highlight */}
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#5865F2]/40 to-transparent opacity-60" />
 
       {/* Admin Panel Header in Discord Dark Theme */}
-      <header className="border-b border-[#1e1f22] bg-[#1e1f22] sticky top-0 z-40 px-4 sm:px-6 py-3.5 transition-all shadow-md">
-        <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <header ref={headerRef} className="border-b border-[#1e1f22] bg-[#1e1f22] sticky top-0 z-40 px-4 sm:px-6 py-2.5 md:py-3.5 transition-all shadow-md">
+        <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-[#5865F2]/10 border border-[#5865F2]/20 rounded-xl relative group">
+            <div className="p-1.5 md:p-2 bg-[#5865F2]/10 border border-[#5865F2]/20 rounded-xl relative group">
               <span className="absolute inset-0 bg-[#5865F2]/15 rounded-xl blur-md opacity-70" />
-              <Layers className="w-5.5 h-5.5 text-[#5865F2] relative" />
+              <Layers className="w-5 h-5 md:w-5.5 md:h-5.5 text-[#5865F2] relative" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-stone-300 font-sans">{timeOfDay}</span>
+                <span className="text-[11px] md:text-xs font-semibold text-stone-300 font-sans">{timeOfDay}</span>
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-[pulse_2s_infinite]" />
               </div>
-              <h1 className="text-md sm:text-lg font-bold tracking-tight text-white mt-0.5">HMG Intranet</h1>
+              <h1 className="text-sm sm:text-lg font-bold tracking-tight text-white mt-0.5">HMG Intranet</h1>
             </div>
           </div>
 
+          <div className="md:hidden space-y-2">
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <div className="grid grid-cols-3 gap-2 min-w-0">
+                <button
+                  onClick={isJournalRoute ? navigateHome : navigateJournal}
+                  className={`h-9 px-2 border rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors duration-150 min-w-0 cursor-pointer ${
+                    isJournalRoute
+                      ? "bg-[#1e1f22] border-[#3f4147]/40 text-stone-200 hover:bg-[#35373c]/50"
+                      : "bg-[#4e5058]/40 border-[#3f4147]/50 text-stone-300 hover:bg-[#5865F2]/20 hover:text-white"
+                  }`}
+                  id="mobile-journal-header-link"
+                >
+                  {isJournalRoute ? <Home className="w-3.5 h-3.5 shrink-0" /> : <BookOpenText className="w-3.5 h-3.5 shrink-0" />}
+                  <span className="truncate">{isJournalRoute ? "Home" : "Journal"}</span>
+                </button>
+
+                <a
+                  href="http://100.66.186.68:9090/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="h-9 px-2 bg-[#5865F2] hover:bg-[#4752c4] text-white text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors duration-150 min-w-0"
+                  id="mobile-unraid-dashboard-header-link"
+                  title="Access Unraid dashboard direct 100.66.186.68:9090"
+                >
+                  <Server className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">Unraid</span>
+                </a>
+
+                <a
+                  href="http://100.93.46.67"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="h-9 px-2 bg-amber-500 hover:bg-amber-400 text-stone-950 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors duration-150 min-w-0 shadow-sm"
+                  id="mobile-glinet-kvm-header-link"
+                  title="Access GLiNet KVM emergency host 100.93.46.67"
+                >
+                  <Server className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">KVM</span>
+                </a>
+              </div>
+
+              <button
+                onClick={() => setIsMobileUtilitiesOpen((open) => !open)}
+                className="h-9 w-10 bg-[#2b2d31] border border-[#3f4147]/40 rounded-xl text-stone-300 flex items-center justify-center cursor-pointer transition-colors hover:bg-[#35373c] hover:text-white"
+                aria-expanded={isMobileUtilitiesOpen}
+                aria-controls="mobile-header-utilities"
+                title={isMobileUtilitiesOpen ? "Hide header utilities" : "Show header utilities"}
+                id="mobile-header-utilities-toggle"
+              >
+                {isMobileUtilitiesOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+            </div>
+
+            {isMobileUtilitiesOpen && (
+              <div id="mobile-header-utilities" className="grid grid-cols-2 gap-2 animate-[fadeIn_0.15s_ease-out]">
+                <div className="h-9 px-3 bg-[#2b2d31] border border-[#1e1f22] rounded-xl text-[11px] font-mono text-stone-300 flex items-center justify-center gap-2 select-none min-w-0">
+                  <span className="w-1.5 h-1.5 bg-stone-500 rounded-full shrink-0" />
+                  <span className="truncate">Clock: <b className="text-white">{localTimeStr}</b></span>
+                </div>
+
+                <button
+                  onClick={() => setIsMoonModalOpen(true)}
+                  className="h-9 px-3 bg-[#2b2d31] border border-[#1e1f22] hover:border-[#5865F2]/45 rounded-xl text-[11px] font-sans text-stone-300 flex items-center justify-center gap-2 select-none hover:bg-[#35373c] transition-all cursor-pointer active:scale-95 shadow-sm min-w-0"
+                  title="Click to view detailed Cornwall astronomical lunar age analysis"
+                  id="mobile-moonphase-expansion-trigger"
+                >
+                  <MoonGraphic iconType={currentMoonPhase.iconType} />
+                  <span className="truncate font-semibold">{currentMoonPhase.name}</span>
+                </button>
+
+                <div className="col-span-2 h-9 px-3 bg-[#2b2d31] border border-[#1e1f22] rounded-xl text-[11px] flex items-center justify-center gap-2 transition-colors min-w-0">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                  {isEditingIp ? (
+                    <div className="flex items-center justify-center gap-1.5 min-w-0">
+                      <input
+                        type="text"
+                        value={tempIp}
+                        onChange={(e) => setTempIp(e.target.value)}
+                        className="bg-[#1e1f22] border border-[#3f4147] rounded px-1.5 py-0.5 text-xs text-white w-32 focus:outline-hidden focus:border-[#5865F2] text-center font-mono"
+                        id="mobile-tailscale-ip-input"
+                      />
+                      <button
+                        onClick={() => {
+                          if (tempIp.trim()) {
+                            setTailscaleIp(tempIp.trim());
+                            setIsEditingIp(false);
+                          }
+                        }}
+                        className="text-[9px] bg-[#5865F2] hover:bg-[#4752c4] text-white px-1.5 py-0.5 rounded font-bold cursor-pointer"
+                        id="mobile-save-ip-button"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => {
+                          setTempIp(tailscaleIp);
+                          setIsEditingIp(false);
+                        }}
+                        className="text-stone-400 hover:text-white"
+                        title="Cancel IP edit"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center gap-1.5 min-w-0">
+                      <span className="text-stone-400 font-mono text-[11px] shrink-0">IP:</span>
+                      <span className="font-bold text-white font-mono tracking-tight truncate">{tailscaleIp}</span>
+                      <button
+                        onClick={() => setIsEditingIp(true)}
+                        className="text-stone-550 hover:text-white p-0.5 cursor-pointer rounded transition-colors shrink-0"
+                        title="Edit IP"
+                      >
+                        <Settings className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => signOut()}
+                  className="col-span-2 h-9 px-3 bg-[#4e5058]/40 hover:bg-rose-600/20 hover:text-rose-400 border border-[#3f4147]/50 rounded-xl text-[11px] font-sans text-stone-300 flex items-center justify-center gap-2 cursor-pointer transition-all duration-150 shadow-xs active:scale-[0.98]"
+                  title="Sign out of the security portal"
+                  id="mobile-portal-logout-button"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Tailscale Configurator, Live Clock, Moon, Custom Unraid Deep Link */}
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="hidden md:flex flex-wrap items-center gap-2.5">
             <button
               onClick={isJournalRoute ? navigateHome : navigateJournal}
               className={`px-3.5 py-1.5 border rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors duration-150 shrink-0 cursor-pointer ${
@@ -676,13 +918,13 @@ export default function App({ devBypassAuth = false }: AppProps) {
           </div>
 
           {/* Right Column (News Stream) */}
-          <div className="lg:col-span-3">
+          <div id="news-section" className="lg:col-span-3 scroll-mt-28">
             <NewsAgent />
           </div>
         </div>
 
         {/* Bottom Section: Docker Link Shortcuts (Permanently Undocked & Open) */}
-        <div className="w-full">
+        <div id="docker-section" className="w-full scroll-mt-28">
           {/* Docker Containers Section */}
           <section className="bg-[#2b2d31] border border-[#1e1f22]/95 rounded-2xl p-4 sm:p-5 shadow-md hover:border-[#3f4147]/40 transition-[border-color] duration-300">
             
@@ -700,7 +942,7 @@ export default function App({ devBypassAuth = false }: AppProps) {
                     </span>
                   </div>
                   <p className="text-[10px] text-stone-400 font-sans mt-0.5">
-                    Homelab console shortcuts permanently undocked and active
+                    Quick links to your homelab services
                   </p>
                 </div>
               </div>
@@ -791,6 +1033,9 @@ export default function App({ devBypassAuth = false }: AppProps) {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 animate-[fadeIn_0.2s_ease-out]">
               {services.map((service) => {
                 const url = `http://${tailscaleIp}:${service.port}`;
+                const rawHealth = serviceHealth[service.id];
+                const displayHealth = isTailnetUnavailable && rawHealth === "offline" ? "no-tailscale" : rawHealth;
+                const health = getServiceHealthMeta(displayHealth);
                 return (
                   <a
                     key={service.id}
@@ -813,6 +1058,13 @@ export default function App({ devBypassAuth = false }: AppProps) {
                         <div className="flex items-center gap-1 mt-0.5">
                           <span className="text-[9px] text-stone-400 font-mono font-semibold">
                             :{service.port}
+                          </span>
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[8px] font-mono font-bold uppercase ${health.ringClass} ${health.textClass}`}
+                            title={health.title}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${health.dotClass}`} />
+                            {health.label}
                           </span>
                         </div>
                       </div>
@@ -845,6 +1097,49 @@ export default function App({ devBypassAuth = false }: AppProps) {
         </p>
       </footer>
 
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[#1e1f22] bg-[#0b0f16]/95 backdrop-blur-md px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-10px_30px_rgba(0,0,0,0.35)]">
+        <div className="grid grid-cols-4 gap-2">
+          <button
+            onClick={navigateHome}
+            className={`h-11 rounded-xl border text-[10px] font-bold flex flex-col items-center justify-center gap-0.5 transition-colors ${
+              isHomeRoute ? "bg-[#5865F2] border-[#5865F2] text-white" : "bg-[#151a23] border-[#3f4147]/40 text-stone-300"
+            }`}
+          >
+            <Home className="w-4 h-4" />
+            <span>Home</span>
+          </button>
+          <button
+            onClick={navigateJournal}
+            className={`h-11 rounded-xl border text-[10px] font-bold flex flex-col items-center justify-center gap-0.5 transition-colors ${
+              isJournalRoute ? "bg-[#5865F2] border-[#5865F2] text-white" : "bg-[#151a23] border-[#3f4147]/40 text-stone-300"
+            }`}
+          >
+            <BookOpenText className="w-4 h-4" />
+            <span>Journal</span>
+          </button>
+          <a
+            href="#docker-section"
+            onClick={() => setIsMobileUtilitiesOpen(false)}
+            className={`h-11 rounded-xl border text-[10px] font-bold flex flex-col items-center justify-center gap-0.5 transition-colors ${
+              isDockerRoute ? "bg-[#5865F2] border-[#5865F2] text-white" : "bg-[#151a23] border-[#3f4147]/40 text-stone-300"
+            }`}
+          >
+            <Layers className="w-4 h-4" />
+            <span>Docker</span>
+          </a>
+          <a
+            href="#news-section"
+            onClick={() => setIsMobileUtilitiesOpen(false)}
+            className={`h-11 rounded-xl border text-[10px] font-bold flex flex-col items-center justify-center gap-0.5 transition-colors ${
+              isNewsRoute ? "bg-[#5865F2] border-[#5865F2] text-white" : "bg-[#151a23] border-[#3f4147]/40 text-stone-300"
+            }`}
+          >
+            <Newspaper className="w-4 h-4" />
+            <span>News</span>
+          </a>
+        </div>
+      </nav>
+
       {/* Expanded Moon Phase Modal Details Overlay */}
       {isMoonModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#111214]/80 backdrop-blur-md animate-[fadeIn_0.18s_ease-out]">
@@ -856,7 +1151,7 @@ export default function App({ devBypassAuth = false }: AppProps) {
             <div className="bg-[#1e1f22]/70 p-4 border-b border-[#1e1f22] flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Moon className="w-4 h-4 text-[#fef08a] animate-pulse" />
-                <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-stone-300">Cornwall Lunar observatory</span>
+                <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-stone-300">Moon details</span>
               </div>
               <button
                 onClick={() => setIsMoonModalOpen(false)}
@@ -916,13 +1211,13 @@ export default function App({ devBypassAuth = false }: AppProps) {
               <div className="mt-4 w-full bg-[#1e1f22]/30 border border-[#3f4147]/25 rounded-xl p-3 flex items-start gap-2">
                 <Info className="w-4 h-4 text-[#5865F2] shrink-0 mt-0.5" />
                 <div className="text-[10px] text-stone-300 leading-normal font-sans">
-                  <b className="text-white block font-bold mb-0.5">Physical Cornwall Gravitational Index:</b>
+                  <b className="text-white block font-bold mb-0.5">Tonight:</b>
                   {currentMoonPhase.illumination >= 70 ? (
-                    <span>Spring Tides active. High gravitational pulling forces registered. Majestic night skyline over Redruth.</span>
+                    <span>Bright moon tonight. Expect stronger spring tides around the coast.</span>
                   ) : currentMoonPhase.illumination <= 30 ? (
-                    <span>Neap Tides active. Purest, stellar dark skies tonight. Outstanding orbital visibility over Bodmin Moors.</span>
+                    <span>Darker skies tonight, with better conditions for seeing stars away from town lights.</span>
                   ) : (
-                    <span>Standard lunar gravitational coefficient. Consistent sea and communication atmospheric index.</span>
+                    <span>Moderate moonlight tonight. General viewing conditions should be steady.</span>
                   )}
                 </div>
               </div>
@@ -934,7 +1229,7 @@ export default function App({ devBypassAuth = false }: AppProps) {
                 onClick={() => setIsMoonModalOpen(false)}
                 className="px-4 py-1.5 bg-[#4e5058] hover:bg-[#5865F2] text-white text-[11px] font-mono font-bold rounded-xl transition-all cursor-pointer active:scale-97 select-none"
               >
-                Close Telescope Dialog
+                Close
               </button>
             </div>
           </div>

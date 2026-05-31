@@ -136,6 +136,7 @@ export default function NewsAgent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const allArticlesCache = useRef<NewsArticle[]>([]);
+  const articleListRef = useRef<HTMLDivElement | null>(null);
   const [expandedCategory, setExpandedCategory] = useState<string | null>("Headlines");
 
   const fetchNews = async (queryStr = "", forceRefresh = false) => {
@@ -221,7 +222,16 @@ export default function NewsAgent() {
     return "text-[#5865F2] border-[#5865F2]/20";
   };
 
-  const toggleCategory = (cat: string) => { setExpandedCategory(prev => (prev === cat ? null : cat)); };
+  const toggleCategory = (cat: string) => {
+    const shouldOpen = expandedCategory !== cat;
+    setExpandedCategory(prev => (prev === cat ? null : cat));
+
+    if (shouldOpen) {
+      window.setTimeout(() => {
+        articleListRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
+    }
+  };
 
   const groupedNews: { [key: string]: NewsArticle[] } = { Headlines: [], Tech: [], Gaming: [], Space: [], Boxing: [] };
   news.forEach(article => {
@@ -262,13 +272,13 @@ export default function NewsAgent() {
             <Newspaper className="w-4 h-4 text-[#5865F2] animate-pulse" />
             <span className="text-[10px] font-mono tracking-wider text-[#5865F2] font-bold uppercase">Real-Time News Stream</span>
           </div>
-          <h2 className="text-md sm:text-lg font-bold text-white tracking-tight mt-1">Multi-Category RSS wire</h2>
-          <p className="text-xs text-stone-400 mt-0.5">Live feeds from Sky News, The Guardian, TechCrunch, Eurogamer, Space.com & BoxingNews 24 (serverless + client fallback)</p>
+          <h2 className="text-md sm:text-lg font-bold text-white tracking-tight mt-1">News feeds</h2>
+          <p className="text-xs text-stone-400 mt-0.5">Live articles from news, tech, gaming, space, and boxing sources.</p>
         </div>
 
         <form onSubmit={handleSearch} className="flex gap-2 w-full md:w-auto md:max-w-md">
           <div className="relative flex-1 md:w-56">
-            <input type="text" placeholder="Search wire headlines..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full text-xs font-sans pl-8 pr-3 py-1.5 border border-[#1e1f22] rounded-xl focus:outline-hidden focus:border-[#5865F2] bg-[#1e1f22] text-stone-200 transition-colors placeholder:text-stone-500" />
+            <input type="text" placeholder="Search headlines..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full text-xs font-sans pl-8 pr-3 py-1.5 border border-[#1e1f22] rounded-xl focus:outline-hidden focus:border-[#5865F2] bg-[#1e1f22] text-stone-200 transition-colors placeholder:text-stone-500" />
             <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-stone-500" />
           </div>
           <button type="submit" disabled={loading} className="px-3.5 py-1.5 bg-[#5865F2] hover:bg-[#5865F2]/85 text-white text-xs font-semibold rounded-xl transition-all flex items-center justify-center cursor-pointer shadow-sm active:scale-95">Search</button>
@@ -281,8 +291,8 @@ export default function NewsAgent() {
       {loading && (
         <div className="flex flex-col items-center justify-center py-16 text-center select-none">
           <div className="w-8 h-8 border-2 border-[#5865F2] border-t-transparent rounded-full animate-spin mb-3" />
-          <h3 className="text-xs sm:text-sm font-semibold text-stone-200">Retrieving standard feeds</h3>
-          <p className="text-[10px] sm:text-xs text-stone-400 mt-1 max-w-sm leading-relaxed">Crawling RSS XML endpoints safely...</p>
+          <h3 className="text-xs sm:text-sm font-semibold text-stone-200">Loading feeds</h3>
+          <p className="text-[10px] sm:text-xs text-stone-400 mt-1 max-w-sm leading-relaxed">Fetching the latest articles...</p>
         </div>
       )}
 
@@ -292,7 +302,7 @@ export default function NewsAgent() {
           <div>
             <h4 className="font-semibold text-red-300 mb-1">Standard Network Read Failure</h4>
             <div className="flex items-center gap-2 mt-2">
-              <button onClick={() => fetchNews(searchQuery, true)} className="px-3 py-1.5 bg-red-900/30 text-red-200 border border-red-800 hover:bg-red-900/50 rounded-lg transition-colors font-medium cursor-pointer">Retry Fetch</button>
+              <button onClick={() => fetchNews(searchQuery, true)} className="px-3 py-1.5 bg-red-900/30 text-red-200 border border-red-800 hover:bg-red-900/50 rounded-lg transition-colors font-medium cursor-pointer">Retry</button>
               <span className="text-stone-500 font-mono text-[9px]">{error}</span>
             </div>
           </div>
@@ -316,11 +326,11 @@ export default function NewsAgent() {
           </div>
 
           {expandedCategory && groupedNews[expandedCategory] && (
-            <div className="mt-4 pt-4 border-t border-[#3f4147]/30 animate-[fadeIn_0.2s_ease-out]">
+            <div ref={articleListRef} className="mt-4 pt-4 border-t border-[#3f4147]/30 animate-[fadeIn_0.2s_ease-out] scroll-mt-28">
               <div className="flex items-center justify-between mb-3.5 px-1">
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-mono uppercase bg-[#1e1f22] border border-[#3f4147]/50 text-stone-300 px-2 py-0.5 rounded-md font-semibold tracking-wide justify-center flex">Live Feed</span>
-                  <p className="text-xs font-bold text-stone-200">{expandedCategory === "Headlines" ? "Top Headlines Feed" : `${expandedCategory} Bulletins`}</p>
+                  <p className="text-xs font-bold text-stone-200">{expandedCategory === "Headlines" ? "Top headlines" : `${expandedCategory} articles`}</p>
                 </div>
                 <button onClick={() => setExpandedCategory(null)} className="text-stone-550 hover:text-stone-300 text-[10px] font-mono cursor-pointer flex items-center gap-1 hover:underline">
                   <ChevronUp className="w-3.5 h-3.5" />
@@ -343,7 +353,7 @@ export default function NewsAgent() {
                         <p className="text-[10px] sm:text-[11px] text-stone-400 font-sans leading-relaxed mt-1.5 line-clamp-3 text-justify">{article.summary}</p>
                       </div>
                       <div className="mt-3 pt-2 border-t border-[#3f4147]/20 flex items-center justify-between text-[9px] font-mono">
-                        <span className="text-stone-550">Wire service</span>
+                        <span className="text-stone-550">Source</span>
                         {article.url && <a href={article.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[#5865F2] hover:text-teal-300 transition-all font-bold cursor-pointer"><span>Open source</span><ExternalLink className="w-2.5 h-2.5" /></a>}
                       </div>
                     </div>

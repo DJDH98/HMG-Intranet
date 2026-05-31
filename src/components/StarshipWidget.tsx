@@ -33,7 +33,7 @@ const FALLBACK_STARSHIP_LAUNCHES: LaunchItem[] = [
     flight_number: 7,
     date_utc: "2026-06-28T14:30:00.000Z",
     date_precision: "day",
-    details: "Expected to test first-ever full orbital altitude propellant transfer demonstration, high-performance Raptor 3 vacuum burns, and enhanced thermal shield resistance for precision atmospheric reentry.",
+    details: "Expected to test propellant transfer, Raptor engine performance, and heat-shield changes during reentry.",
     launchpad_name: "Orbital Launch Mount A, Starbase, Boca Chica, Texas",
     isFallback: true
   },
@@ -43,7 +43,7 @@ const FALLBACK_STARSHIP_LAUNCHES: LaunchItem[] = [
     flight_number: 8,
     date_utc: "2026-09-15T00:00:00.000Z",
     date_precision: "month",
-    details: "Scheduled to feature Starship Upper Stage structural refinements, uprated hot-staging rings, and a secondary propellant boil-off control test in deep space.",
+    details: "Expected to test upper-stage refinements, hot-staging hardware, and propellant boil-off control.",
     launchpad_name: "Orbital Launch Mount A, Starbase, Boca Chica, Texas",
     isFallback: true
   },
@@ -53,7 +53,7 @@ const FALLBACK_STARSHIP_LAUNCHES: LaunchItem[] = [
     flight_number: 9,
     date_utc: "2026-11-20T00:00:00.000Z",
     date_precision: "quarter",
-    details: "An ambitious launch focusing on second-stage rapid deployment simulations and precision vertical soft-landing attempts of the Starship upper spacecraft.",
+    details: "Expected to focus on upper-stage deployment tests and landing accuracy.",
     launchpad_name: "Orbital Launch Mount B, Starbase, Boca Chica, Texas",
     isFallback: true
   }
@@ -98,7 +98,7 @@ export default function StarshipWidget() {
         
         let detailsText = item.details;
         if (!detailsText) {
-          detailsText = `SpaceX Starship prototype system flight test (${item.name}). Designed to test super-heavy liftoff dynamics, booster hot-staging capture or water landing, and thermal boundary layers validation.`;
+          detailsText = `SpaceX Starship test flight (${item.name}). Expected to test liftoff, staging, landing, and heat-shield performance.`;
         }
 
         return {
@@ -192,7 +192,7 @@ export default function StarshipWidget() {
     return (
       <div className="bg-[#2b2d31] border border-[#1e1f22] rounded-2xl p-4 sm:p-5 flex flex-col justify-center items-center h-48 animate-pulse text-stone-400 font-sans">
         <Rocket className="w-5 h-5 animate-bounce mb-2 text-[#5865F2]" />
-        <p className="text-xs font-semibold">Tuning telemetry dishes...</p>
+        <p className="text-xs font-semibold">Loading SpaceX launches...</p>
         <p className="text-[10px] text-stone-500 mt-1">Fetching SpaceX schedule...</p>
       </div>
     );
@@ -243,8 +243,8 @@ export default function StarshipWidget() {
             <Rocket className="w-3.5 h-3.5 animate-[pulse_2.5s_infinite]" />
           </div>
           <div>
-            <span className="text-[8px] font-mono tracking-widest text-stone-400 uppercase font-semibold">Live SpaceX Telemetry</span>
-            <h3 className="text-xs font-bold text-stone-100 tracking-tight">Starship Manifest</h3>
+            <span className="text-[8px] font-mono tracking-widest text-stone-400 uppercase font-semibold">SpaceX launches</span>
+            <h3 className="text-xs font-bold text-stone-100 tracking-tight">Starship schedule</h3>
           </div>
         </div>
 
@@ -369,7 +369,7 @@ export default function StarshipWidget() {
           {/* Core Goals Description Box */}
           <div className="bg-[#1e1f22]/35 border border-[#1e1f22]/90 rounded-xl p-2.5 mt-3.5">
             <span className="text-[8px] uppercase tracking-wider font-mono font-bold text-stone-400 block mb-1">
-              Mission Profile & Primary Goals:
+              Mission notes:
             </span>
             <p className="text-[9px] sm:text-[10px] text-stone-300 font-sans leading-normal line-clamp-4">
               {activeLaunch.details}
@@ -380,9 +380,9 @@ export default function StarshipWidget() {
           <div className="mt-3 border-t border-[#2b2d31] pt-2 flex items-center justify-between text-[8px] font-mono text-stone-500">
             <span>Last Indexed: {lastRefreshed.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span>
             {activeLaunch.isFallback ? (
-              <span className="text-amber-500/80 uppercase font-semibold">Offline Manifest Mode</span>
+              <span className="text-amber-500/80 uppercase font-semibold">Offline schedule</span>
             ) : (
-              <span className="text-[#5865F2] uppercase font-semibold">Live SpaceX Uplink</span>
+              <span className="text-[#5865F2] uppercase font-semibold">Live API data</span>
             )}
           </div>
 
