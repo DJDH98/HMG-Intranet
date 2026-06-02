@@ -30,7 +30,8 @@ import {
   Shield,
   BookOpenText,
   Home,
-  Newspaper
+  Newspaper,
+  Coins
 } from "lucide-react";
 import { DEFAULT_SERVICES } from "./defaultServices";
 import { DockerService } from "./types";
@@ -39,6 +40,7 @@ import NewsAgent from "./components/NewsAgent";
 import StarshipWidget from "./components/StarshipWidget";
 import GitHubLoginGateway from "./components/GitHubLoginGateway";
 import JournalPage from "./components/JournalPage";
+import OsrsFlipsPage from "./components/OsrsFlipsPage";
 import { useAuth, useUser } from "@clerk/clerk-react";
 
 const ALLOWED_GITHUB_USERNAME = "djdh98";
@@ -513,9 +515,10 @@ export default function App({ devBypassAuth = false }: AppProps) {
   });
 
   const isJournalRoute = activeRoute === "#/journal";
+  const isOsrsFlipsRoute = activeRoute === "#/osrs-flips";
   const isDockerRoute = activeRoute === "#docker-section";
   const isNewsRoute = activeRoute === "#news-section";
-  const isHomeRoute = !isJournalRoute && !isDockerRoute && !isNewsRoute;
+  const isHomeRoute = !isJournalRoute && !isOsrsFlipsRoute && !isDockerRoute && !isNewsRoute;
   const isTailnetUnavailable = services.length > 0 && services.every(service => serviceHealth[service.id] === "offline");
   const getServiceHealthMeta = (status: ServiceHealthStatus = "checking") => {
     switch (status) {
@@ -571,6 +574,12 @@ export default function App({ devBypassAuth = false }: AppProps) {
   const navigateJournal = () => {
     window.location.hash = "#/journal";
     setActiveRoute("#/journal");
+    setIsMobileUtilitiesOpen(false);
+  };
+
+  const navigateOsrsFlips = () => {
+    window.location.hash = "#/osrs-flips";
+    setActiveRoute("#/osrs-flips");
     setIsMobileUtilitiesOpen(false);
   };
 
@@ -640,7 +649,7 @@ export default function App({ devBypassAuth = false }: AppProps) {
 
           <div className="md:hidden space-y-2">
             <div className="grid grid-cols-[1fr_auto] gap-2">
-              <div className="grid grid-cols-3 gap-2 min-w-0">
+              <div className="grid grid-cols-4 gap-2 min-w-0">
                 <button
                   onClick={isJournalRoute ? navigateHome : navigateJournal}
                   className={`h-9 px-2 border rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors duration-150 min-w-0 cursor-pointer ${
@@ -652,6 +661,19 @@ export default function App({ devBypassAuth = false }: AppProps) {
                 >
                   {isJournalRoute ? <Home className="w-3.5 h-3.5 shrink-0" /> : <BookOpenText className="w-3.5 h-3.5 shrink-0" />}
                   <span className="truncate">{isJournalRoute ? "Home" : "Journal"}</span>
+                </button>
+
+                <button
+                  onClick={isOsrsFlipsRoute ? navigateHome : navigateOsrsFlips}
+                  className={`h-9 px-2 border rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors duration-150 min-w-0 cursor-pointer ${
+                    isOsrsFlipsRoute
+                      ? "bg-[#1e1f22] border-[#3f4147]/40 text-stone-200 hover:bg-[#35373c]/50"
+                      : "bg-emerald-500/15 border-emerald-500/25 text-emerald-200 hover:bg-emerald-500/25 hover:text-white"
+                  }`}
+                  id="mobile-osrs-flips-header-link"
+                >
+                  {isOsrsFlipsRoute ? <Home className="w-3.5 h-3.5 shrink-0" /> : <Coins className="w-3.5 h-3.5 shrink-0" />}
+                  <span className="truncate">{isOsrsFlipsRoute ? "Home" : "OSRS"}</span>
                 </button>
 
                 <a
@@ -785,6 +807,19 @@ export default function App({ devBypassAuth = false }: AppProps) {
               <span>{isJournalRoute ? "Dashboard" : "Journal"}</span>
             </button>
 
+            <button
+              onClick={isOsrsFlipsRoute ? navigateHome : navigateOsrsFlips}
+              className={`px-3.5 py-1.5 border rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors duration-150 shrink-0 cursor-pointer ${
+                isOsrsFlipsRoute
+                  ? "bg-[#1e1f22] border-[#3f4147]/40 text-stone-200 hover:bg-[#35373c]/50"
+                  : "bg-emerald-500/15 border-emerald-500/25 text-emerald-200 hover:bg-emerald-500/25 hover:text-white"
+              }`}
+              id="osrs-flips-header-link"
+            >
+              {isOsrsFlipsRoute ? <Home className="w-3.5 h-3.5" /> : <Coins className="w-3.5 h-3.5" />}
+              <span>{isOsrsFlipsRoute ? "Dashboard" : "OSRS Flips"}</span>
+            </button>
+
             {/* Real Unraid WebUI deep link for Dalen */}
             <a
               href="http://100.66.186.68:9090/"
@@ -906,6 +941,8 @@ export default function App({ devBypassAuth = false }: AppProps) {
 
       {isJournalRoute ? (
         <JournalPage onBackHome={navigateHome} getAuthToken={getToken} />
+      ) : isOsrsFlipsRoute ? (
+        <OsrsFlipsPage onBackHome={navigateHome} />
       ) : (
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 w-full flex-grow flex flex-col gap-6 relative z-10">
         
@@ -1098,7 +1135,7 @@ export default function App({ devBypassAuth = false }: AppProps) {
       </footer>
 
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[#1e1f22] bg-[#0b0f16]/95 backdrop-blur-md px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-10px_30px_rgba(0,0,0,0.35)]">
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-5 gap-2">
           <button
             onClick={navigateHome}
             className={`h-11 rounded-xl border text-[10px] font-bold flex flex-col items-center justify-center gap-0.5 transition-colors ${
@@ -1116,6 +1153,15 @@ export default function App({ devBypassAuth = false }: AppProps) {
           >
             <BookOpenText className="w-4 h-4" />
             <span>Journal</span>
+          </button>
+          <button
+            onClick={navigateOsrsFlips}
+            className={`h-11 rounded-xl border text-[10px] font-bold flex flex-col items-center justify-center gap-0.5 transition-colors ${
+              isOsrsFlipsRoute ? "bg-[#5865F2] border-[#5865F2] text-white" : "bg-[#151a23] border-[#3f4147]/40 text-stone-300"
+            }`}
+          >
+            <Coins className="w-4 h-4" />
+            <span>OSRS</span>
           </button>
           <a
             href="#docker-section"
