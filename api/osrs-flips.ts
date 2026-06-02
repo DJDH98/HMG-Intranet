@@ -151,6 +151,26 @@ class ProtoReader {
     throw new Error("Unexpected end of protobuf varint");
   }
 
+  readVarintBigInt(): bigint {
+    let result = 0n;
+    let shift = 0n;
+
+    while (this.offset < this.bytes.length) {
+      const byte = this.bytes[this.offset++];
+      result |= BigInt(byte & 0x7f) << shift;
+      if ((byte & 0x80) === 0) return result;
+      shift += 7n;
+    }
+
+    throw new Error("Unexpected end of protobuf varint");
+  }
+
+  readInt64(): number {
+    const unsigned = this.readVarintBigInt();
+    const signed = unsigned >= (1n << 63n) ? unsigned - (1n << 64n) : unsigned;
+    return Number(signed);
+  }
+
   readBytes(length: number) {
     const end = this.offset + length;
     if (end > this.bytes.length) throw new Error("Unexpected end of protobuf bytes");
@@ -249,7 +269,7 @@ function decodeFlip(bytes: Uint8Array, accountNamesById: Record<number, string>)
         flip.openedQuantity = reader.readVarint();
         break;
       case 7:
-        flip.spent = reader.readVarint();
+        flip.spent = reader.readInt64();
         break;
       case 8:
         flip.closedTime = reader.readVarint();
@@ -258,13 +278,13 @@ function decodeFlip(bytes: Uint8Array, accountNamesById: Record<number, string>)
         flip.closedQuantity = reader.readVarint();
         break;
       case 10:
-        flip.receivedPostTax = reader.readVarint();
+        flip.receivedPostTax = reader.readInt64();
         break;
       case 11:
-        flip.taxPaid = reader.readVarint();
+        flip.taxPaid = reader.readInt64();
         break;
       case 12:
-        flip.profit = reader.readVarint();
+        flip.profit = reader.readInt64();
         break;
       case 13:
         closedFlag = reader.readVarint() === 1;

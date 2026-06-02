@@ -77,11 +77,11 @@ type GraphMode = "combined" | "individual";
 
 function formatCompactNumber(value: number) {
   const abs = Math.abs(value);
-  if (abs >= 1_000_000_000_000) return `${wholeNumber.format(Math.round(abs / 1_000_000_000))}b`;
-  if (abs >= 10_000_000_000) return `${wholeNumber.format(Math.round(abs / 1_000_000_000))}b`;
-  if (abs >= 1_000_000_000) return `${(abs / 1_000_000_000).toFixed(1).replace(/\.0$/, "")}b`;
-  if (abs >= 10_000_000) return `${wholeNumber.format(Math.round(abs / 1_000_000))}m`;
-  if (abs >= 1_000_000) return `${(abs / 1_000_000).toFixed(1).replace(/\.0$/, "")}m`;
+  if (abs >= 1_000_000) {
+    return `${(abs / 1_000_000)
+      .toFixed(3)
+      .replace(/\.?0+$/, "")}m`;
+  }
   if (abs >= 10_000) return `${wholeNumber.format(Math.round(abs / 1_000))}k`;
   if (abs >= 1_000) return `${(abs / 1_000).toFixed(1).replace(/\.0$/, "")}k`;
   return wholeNumber.format(abs);
@@ -322,7 +322,7 @@ function CumulativeProfitChart({
   const allPoints = series.flatMap((item) => item.points);
   const width = 1100;
   const height = 360;
-  const pad = { top: 28, right: 34, bottom: 48, left: 82 };
+  const pad = { top: 36, right: 34, bottom: 48, left: 126 };
   const plotWidth = width - pad.left - pad.right;
   const plotHeight = height - pad.top - pad.bottom;
   const minTime = domainStart;
@@ -341,8 +341,8 @@ function CumulativeProfitChart({
     <div className="overflow-x-auto rounded-xl border border-[#1e1f22] bg-[#0b0f16]/60">
       <svg ref={svgRef} viewBox={`0 0 ${width} ${height}`} className="min-w-[780px] w-full h-auto" role="img" aria-label="Cumulative profit over time">
         <rect width={width} height={height} fill="#0b0f16" />
-        <text x={pad.left} y={24} fill="#ffffff" fontSize="17" fontWeight="800">Cumulative Profit Over Time</text>
-        <text x={width - pad.right} y={24} fill="#94a3b8" fontSize="11" fontFamily="monospace" textAnchor="end">{rangeLabel}</text>
+        <text x={pad.left} y={28} fill="#ffffff" fontSize="17" fontWeight="800">Cumulative Profit Over Time</text>
+        <text x={width - pad.right} y={28} fill="#94a3b8" fontSize="11" fontFamily="monospace" textAnchor="end">{rangeLabel}</text>
         {yTicks.map((tick) => {
           const y = toY(tick);
           return (
