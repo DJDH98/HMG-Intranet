@@ -22,6 +22,7 @@ interface OsrsFlip {
   accountName: string;
   itemId: number;
   itemName: string;
+  itemIconUrl?: string;
   openedTime: number;
   openedQuantity: number;
   spent: number;
@@ -60,11 +61,6 @@ interface ApiResponse {
   warning?: string;
 }
 
-const compactGp = new Intl.NumberFormat("en-GB", {
-  notation: "compact",
-  maximumFractionDigits: 1
-});
-
 const wholeNumber = new Intl.NumberFormat("en-GB");
 const chartColors = ["#22c55e", "#38bdf8", "#a78bfa", "#f59e0b", "#fb7185", "#2dd4bf"];
 const timeframes = [
@@ -79,9 +75,21 @@ const timeframes = [
 type TimeframeId = typeof timeframes[number]["id"];
 type GraphMode = "combined" | "individual";
 
+function formatCompactNumber(value: number) {
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000_000_000) return `${wholeNumber.format(Math.round(abs / 1_000_000_000))}b`;
+  if (abs >= 10_000_000_000) return `${wholeNumber.format(Math.round(abs / 1_000_000_000))}b`;
+  if (abs >= 1_000_000_000) return `${(abs / 1_000_000_000).toFixed(1).replace(/\.0$/, "")}b`;
+  if (abs >= 10_000_000) return `${wholeNumber.format(Math.round(abs / 1_000_000))}m`;
+  if (abs >= 1_000_000) return `${(abs / 1_000_000).toFixed(1).replace(/\.0$/, "")}m`;
+  if (abs >= 10_000) return `${wholeNumber.format(Math.round(abs / 1_000))}k`;
+  if (abs >= 1_000) return `${(abs / 1_000).toFixed(1).replace(/\.0$/, "")}k`;
+  return wholeNumber.format(abs);
+}
+
 function formatGp(value: number) {
   const sign = value > 0 ? "+" : value < 0 ? "-" : "";
-  return `${sign}${compactGp.format(Math.abs(value))} gp`;
+  return `${sign}${formatCompactNumber(value)} gp`;
 }
 
 function formatExactGp(value: number) {
@@ -89,7 +97,8 @@ function formatExactGp(value: number) {
 }
 
 function formatAxisGp(value: number) {
-  return `${compactGp.format(value)} gp`;
+  const sign = value < 0 ? "-" : "";
+  return `${sign}${formatCompactNumber(value)} gp`;
 }
 
 function formatTime(epochSeconds: number) {
@@ -134,6 +143,7 @@ const sampleFlips: OsrsFlip[] = [
     accountName: "Main",
     itemId: 12817,
     itemName: "Elysian spirit shield",
+    itemIconUrl: "https://oldschool.runescape.wiki/w/Special:Redirect/file/Elysian%20spirit%20shield.png",
     openedTime: 1780317000,
     openedQuantity: 1,
     spent: 861250000,
@@ -152,6 +162,7 @@ const sampleFlips: OsrsFlip[] = [
     accountName: "Main",
     itemId: 27277,
     itemName: "Tumeken's shadow",
+    itemIconUrl: "https://oldschool.runescape.wiki/w/Special:Redirect/file/Tumeken%27s%20shadow.png",
     openedTime: 1780311000,
     openedQuantity: 1,
     spent: 1401000000,
@@ -170,6 +181,7 @@ const sampleFlips: OsrsFlip[] = [
     accountName: "Alt",
     itemId: 26382,
     itemName: "Torva platebody",
+    itemIconUrl: "https://oldschool.runescape.wiki/w/Special:Redirect/file/Torva%20platebody.png",
     openedTime: 1780309000,
     openedQuantity: 1,
     spent: 487000000,
@@ -188,6 +200,7 @@ const sampleFlips: OsrsFlip[] = [
     accountName: "Alt",
     itemId: 21006,
     itemName: "Kodai wand",
+    itemIconUrl: "https://oldschool.runescape.wiki/w/Special:Redirect/file/Kodai%20wand.png",
     openedTime: 1780299000,
     openedQuantity: 2,
     spent: 162400000,
@@ -214,19 +227,39 @@ function profitClass(value: number) {
   return "text-stone-300";
 }
 
+function ItemIcon({ src, name, className = "w-9 h-9" }: { src?: string; name: string; className?: string }) {
+  return (
+    <div className={`${className} shrink-0 rounded-lg border border-[#3f4147]/30 bg-[#0b0f16] flex items-center justify-center overflow-hidden`}>
+      {src ? (
+        <img
+          src={src}
+          alt=""
+          className="max-w-[78%] max-h-[78%] object-contain image-rendering-auto"
+          loading="lazy"
+          referrerPolicy="no-referrer"
+        />
+      ) : (
+        <span className="text-[10px] font-mono text-stone-500">{name.slice(0, 1).toUpperCase()}</span>
+      )}
+    </div>
+  );
+}
+
 function aggregateBy<T extends string | number>(flips: OsrsFlip[], key: (flip: OsrsFlip) => T) {
-  const map = new Map<T, { key: T; label: string; profit: number; flips: number; quantity: number }>();
+  const map = new Map<T, { key: T; label: string; iconUrl?: string; profit: number; flips: number; quantity: number }>();
   for (const flip of flips) {
     if (flip.deleted || flip.status !== "FINISHED") continue;
     const groupKey = key(flip);
     const existing = map.get(groupKey) || {
       key: groupKey,
       label: typeof groupKey === "number" ? String(groupKey) : groupKey,
+      iconUrl: flip.itemIconUrl,
       profit: 0,
       flips: 0,
       quantity: 0
     };
     existing.label = typeof groupKey === "number" ? flip.itemName : String(groupKey);
+    existing.iconUrl = existing.iconUrl || flip.itemIconUrl;
     existing.profit += flip.profit;
     existing.flips += 1;
     existing.quantity += flip.closedQuantity || flip.openedQuantity;
@@ -260,7 +293,13 @@ function buildCumulativeSeries(flips: OsrsFlip[], mode: GraphMode) {
       color: chartColors[index % chartColors.length],
       points: groupFlips.map((flip) => {
         total += flip.profit;
-        return { time: getFlipTime(flip), profit: total, itemName: flip.itemName };
+        return {
+          time: getFlipTime(flip),
+          profit: total,
+          flipProfit: flip.profit,
+          itemName: flip.itemName,
+          accountName: flip.accountName
+        };
       })
     };
   }).filter((series) => series.points.length > 0);
@@ -269,11 +308,15 @@ function buildCumulativeSeries(flips: OsrsFlip[], mode: GraphMode) {
 function CumulativeProfitChart({
   flips,
   mode,
-  svgRef
+  svgRef,
+  domainStart,
+  domainEnd
 }: {
   flips: OsrsFlip[];
   mode: GraphMode;
   svgRef: RefObject<SVGSVGElement | null>;
+  domainStart: number;
+  domainEnd: number;
 }) {
   const series = useMemo(() => buildCumulativeSeries(flips, mode), [flips, mode]);
   const allPoints = series.flatMap((item) => item.points);
@@ -282,8 +325,8 @@ function CumulativeProfitChart({
   const pad = { top: 28, right: 34, bottom: 48, left: 82 };
   const plotWidth = width - pad.left - pad.right;
   const plotHeight = height - pad.top - pad.bottom;
-  const minTime = Math.min(...allPoints.map((point) => point.time), 0);
-  const maxTime = Math.max(...allPoints.map((point) => point.time), minTime + 1);
+  const minTime = domainStart;
+  const maxTime = Math.max(domainEnd, domainStart + 1);
   const minProfit = Math.min(0, ...allPoints.map((point) => point.profit));
   const maxProfit = Math.max(1, ...allPoints.map((point) => point.profit));
   const profitRange = Math.max(1, maxProfit - minProfit);
@@ -292,9 +335,7 @@ function CumulativeProfitChart({
   const toY = (profit: number) => pad.top + plotHeight - ((profit - minProfit) / profitRange) * plotHeight;
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => minProfit + profitRange * ratio);
   const xTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => minTime + timeRange * ratio);
-  const rangeLabel = allPoints.length
-    ? `${new Date(minTime * 1000).toLocaleDateString("en-GB", { month: "short", day: "2-digit" })} - ${new Date(maxTime * 1000).toLocaleDateString("en-GB", { month: "short", day: "2-digit" })}`
-    : "No finished flips";
+  const rangeLabel = `${new Date(minTime * 1000).toLocaleDateString("en-GB", { month: "short", day: "2-digit" })} - ${new Date(maxTime * 1000).toLocaleDateString("en-GB", { month: "short", day: "2-digit" })}`;
 
   return (
     <div className="overflow-x-auto rounded-xl border border-[#1e1f22] bg-[#0b0f16]/60">
@@ -330,6 +371,25 @@ function CumulativeProfitChart({
           return (
             <g key={item.name}>
               <path d={path} fill="none" stroke={item.color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+              {item.points.map((point) => (
+                <circle
+                  key={`${item.name}-${point.time}-${point.itemName}-${point.profit}`}
+                  cx={toX(point.time)}
+                  cy={toY(point.profit)}
+                  r="8"
+                  fill={item.color}
+                  fillOpacity="0.001"
+                  stroke={item.color}
+                  strokeOpacity="0"
+                >
+                  <title>
+                    {`${point.itemName}
+${item.name !== "Combined" ? `${point.accountName}\n` : ""}${new Date(point.time * 1000).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+Flip profit: ${formatExactGp(point.flipProfit)}
+Cumulative profit: ${formatExactGp(point.profit)}`}
+                  </title>
+                </circle>
+              ))}
               {lastPoint && <circle cx={toX(lastPoint.time)} cy={toY(lastPoint.profit)} r="5" fill={item.color} stroke="#0b0f16" strokeWidth="2" />}
             </g>
           );
@@ -480,16 +540,30 @@ export default function OsrsFlipsPage({ onBackHome }: { onBackHome: () => void }
 
   const flips = payload?.flips || [];
   const visibleFlips = accountFilter === "all" ? flips : flips.filter((flip) => flip.accountName === accountFilter);
+  const timelineDomain = useMemo(() => {
+    const selected = timeframes.find((item) => item.id === timeframe);
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const flipTimes = visibleFlips.map((flip) => getFlipTime(flip)).filter((time) => time > 0);
+
+    if (!selected || selected.id === "all") {
+      const domainStart = flipTimes.length ? Math.min(...flipTimes) : nowSeconds - 60 * 60 * 24 * 30;
+      const domainEnd = Math.max(nowSeconds, ...(flipTimes.length ? flipTimes : [nowSeconds]));
+      return { domainStart, domainEnd };
+    }
+
+    return {
+      domainStart: nowSeconds - selected.seconds,
+      domainEnd: nowSeconds
+    };
+  }, [timeframe, visibleFlips]);
   const timelineFlips = useMemo(() => {
     const selected = timeframes.find((item) => item.id === timeframe);
     if (!selected || selected.id === "all") return visibleFlips;
-    const latestTime = Math.max(
-      Math.floor(Date.now() / 1000),
-      ...visibleFlips.map((flip) => getFlipTime(flip))
-    );
-    const startTime = latestTime - selected.seconds;
-    return visibleFlips.filter((flip) => getFlipTime(flip) >= startTime);
-  }, [timeframe, visibleFlips]);
+    return visibleFlips.filter((flip) => {
+      const flipTime = getFlipTime(flip);
+      return flipTime >= timelineDomain.domainStart && flipTime <= timelineDomain.domainEnd;
+    });
+  }, [timeframe, timelineDomain, visibleFlips]);
   const summary = useMemo(() => {
     if (!payload) return undefined;
     const filtered = timelineFlips.filter((flip) => !flip.deleted && flip.status === "FINISHED");
@@ -513,6 +587,7 @@ export default function OsrsFlipsPage({ onBackHome }: { onBackHome: () => void }
   const accountLeaders = aggregateBy(timelineFlips, (flip) => flip.accountName).slice(0, 5);
   const accounts = Object.keys(payload?.accounts || {});
   const uniqueItems = new Set(timelineFlips.filter((flip) => !flip.deleted && flip.status === "FINISHED").map((flip) => flip.itemId)).size;
+  const activityFlips = timelineFlips.filter((flip) => flip.status !== "BUYING");
 
   return (
     <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 w-full flex-grow flex flex-col gap-6 relative z-10">
@@ -703,7 +778,13 @@ export default function OsrsFlipsPage({ onBackHome }: { onBackHome: () => void }
             </button>
           </div>
         </div>
-        <CumulativeProfitChart flips={timelineFlips} mode={graphMode} svgRef={chartRef} />
+        <CumulativeProfitChart
+          flips={timelineFlips}
+          mode={graphMode}
+          svgRef={chartRef}
+          domainStart={timelineDomain.domainStart}
+          domainEnd={timelineDomain.domainEnd}
+        />
       </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -735,7 +816,10 @@ export default function OsrsFlipsPage({ onBackHome }: { onBackHome: () => void }
             {itemLeaders.map((item) => (
               <div key={item.key} className="bg-[#1e1f22]/55 border border-[#3f4147]/25 rounded-xl p-3">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs text-white font-bold truncate">{item.label}</span>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <ItemIcon src={item.iconUrl} name={item.label} />
+                    <span className="text-xs text-white font-bold truncate">{item.label}</span>
+                  </div>
                   <span className={`text-xs font-mono font-bold shrink-0 ${profitClass(item.profit)}`}>{formatGp(item.profit)}</span>
                 </div>
                 <div className="mt-1 text-[10px] text-stone-500 font-mono">{item.flips} flips / qty {wholeNumber.format(item.quantity)}</div>
@@ -773,7 +857,7 @@ export default function OsrsFlipsPage({ onBackHome }: { onBackHome: () => void }
               <span className="text-[10px] text-[#5865F2] uppercase font-mono font-bold tracking-widest">Flip ledger</span>
               <h3 className="text-sm font-bold text-white">Latest activity</h3>
             </div>
-            <span className="text-[10px] text-stone-500 font-mono">{timelineFlips.length} rows</span>
+            <span className="text-[10px] text-stone-500 font-mono">{activityFlips.length} rows</span>
           </div>
 
           <div className="overflow-x-auto">
@@ -789,11 +873,16 @@ export default function OsrsFlipsPage({ onBackHome }: { onBackHome: () => void }
                 </tr>
               </thead>
               <tbody>
-                {timelineFlips.slice(0, 18).map((flip) => (
+                {activityFlips.slice(0, 18).map((flip) => (
                   <tr key={flip.id || `${flip.accountId}-${flip.itemId}-${flip.updatedTime}`} className="border-b border-[#3f4147]/15 text-xs">
                     <td className="py-3 pr-3">
-                      <div className="font-bold text-white truncate max-w-[220px]">{flip.itemName}</div>
-                      <div className="text-[10px] text-stone-500 font-mono">#{flip.itemId}</div>
+                      <div className="flex items-center gap-2.5 min-w-[220px]">
+                        <ItemIcon src={flip.itemIconUrl} name={flip.itemName} className="w-10 h-10" />
+                        <div className="min-w-0">
+                          <div className="font-bold text-white truncate max-w-[220px]">{flip.itemName}</div>
+                          <div className="text-[10px] text-stone-500 font-mono">#{flip.itemId}</div>
+                        </div>
+                      </div>
                     </td>
                     <td className="py-3 pr-3 text-stone-300 font-semibold">{flip.accountName}</td>
                     <td className="py-3 pr-3">
@@ -808,9 +897,9 @@ export default function OsrsFlipsPage({ onBackHome }: { onBackHome: () => void }
                 ))}
               </tbody>
             </table>
-            {!timelineFlips.length && (
+            {!activityFlips.length && (
               <div className="py-12 text-center text-xs text-stone-500 font-mono">
-                {isLoading ? "Loading flips..." : "No flips found for this account"}
+                {isLoading ? "Loading flips..." : "No non-buying activity found for this account"}
               </div>
             )}
           </div>

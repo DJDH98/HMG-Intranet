@@ -8,6 +8,7 @@ interface OsrsFlip {
   accountName: string;
   itemId: number;
   itemName: string;
+  itemIconUrl?: string;
   openedTime: number;
   openedQuantity: number;
   spent: number;
@@ -46,9 +47,11 @@ const API_HOST = process.env.FLIPPING_COPILOT_HOST || "https://api.flippingcopil
 const CACHE_MS = 2 * 60 * 1000;
 const COOKIE_NAME = "hmg_fc_jwt";
 const USER_ID_COOKIE_NAME = "hmg_fc_user_id";
+const OSRS_WIKI_MAPPING_URL = "https://prices.runescape.wiki/api/v1/osrs/mapping";
 
 let cachedPayload: { cacheKey: string; data: CachePayload; cachedAt: number } | null = null;
 let cachedLogin: { jwt: string; userId: number; expiresAt: number } | null = null;
+let cachedItemMeta: { items: Record<number, { name: string; iconUrl?: string }>; cachedAt: number } | null = null;
 
 const sampleFlips: OsrsFlip[] = [
   {
@@ -57,6 +60,7 @@ const sampleFlips: OsrsFlip[] = [
     accountName: "Setup required",
     itemId: 12817,
     itemName: "Elysian spirit shield",
+    itemIconUrl: "https://oldschool.runescape.wiki/w/Special:Redirect/file/Elysian%20spirit%20shield.png",
     openedTime: 1780317000,
     openedQuantity: 1,
     spent: 861_250_000,
@@ -78,6 +82,7 @@ const sampleFlips: OsrsFlip[] = [
     accountName: "Setup required",
     itemId: 27277,
     itemName: "Tumeken's shadow",
+    itemIconUrl: "https://oldschool.runescape.wiki/w/Special:Redirect/file/Tumeken%27s%20shadow.png",
     openedTime: 1780311000,
     openedQuantity: 1,
     spent: 1_401_000_000,
@@ -199,6 +204,7 @@ function decodeFlip(bytes: Uint8Array, accountNamesById: Record<number, string>)
     accountName: "Unknown",
     itemId: 0,
     itemName: "Unknown item",
+    itemIconUrl: "",
     openedTime: 0,
     openedQuantity: 0,
     spent: 0,
@@ -313,6 +319,65 @@ function decodeFlipsDelta(bytes: Uint8Array, accountNamesById: Record<number, st
   return { time, flips };
 }
 
+function wikiFileUrl(icon: string) {
+  return `https://oldschool.runescape.wiki/w/Special:Redirect/file/${encodeURIComponent(icon)}`;
+}
+
+async function getItemMetaById() {
+  const now = Date.now();
+  if (cachedItemMeta && now - cachedItemMeta.cachedAt < 24 * 60 * 60 * 1000) {
+    return cachedItemMeta.items;
+  }
+
+  const response = await fetch(OSRS_WIKI_MAPPING_URL, {
+    headers: {
+      "User-Agent": "HMG-Intranet OSRS flipping dashboard - item name lookup"
+    }
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to load OSRS item mapping: ${response.status}`);
+  }
+
+  const mapping = await response.json();
+  const items = Object.fromEntries(
+    (Array.isArray(mapping) ? mapping : [])
+      .filter((item: any) => Number.isFinite(item?.id) && typeof item?.name === "string")
+      .map((item: any) => [
+        item.id,
+        {
+          name: item.name,
+          iconUrl: typeof item?.icon === "string" ? wikiFileUrl(item.icon) : undefined
+        }
+      ])
+  );
+
+  cachedItemMeta = { items, cachedAt: now };
+  return items;
+}
+
+async function fillItemMeta(flips: OsrsFlip[]) {
+  const needsMeta = flips.some((flip) => !flip.itemName || flip.itemName === "Unknown item" || !flip.itemIconUrl);
+  if (!needsMeta) return flips;
+
+  try {
+    const itemMeta = await getItemMetaById();
+    return flips.map((flip) => ({
+      ...flip,
+      itemName: flip.itemName && flip.itemName !== "Unknown item"
+        ? flip.itemName
+        : itemMeta[flip.itemId]?.name || `Item #${flip.itemId}`,
+      itemIconUrl: flip.itemIconUrl || itemMeta[flip.itemId]?.iconUrl || ""
+    }));
+  } catch (error) {
+    console.warn("Unable to enrich OSRS item metadata", error);
+    return flips.map((flip) => ({
+      ...flip,
+      itemName: flip.itemName && flip.itemName !== "Unknown item" ? flip.itemName : `Item #${flip.itemId}`,
+      itemIconUrl: flip.itemIconUrl || ""
+    }));
+  }
+}
+
 async function requestJson(url: string, init: RequestInit) {
   const response = await fetch(url, init);
   const body = await response.text();
@@ -409,7 +474,8 @@ async function fetchLivePayload(req: VercelRequest): Promise<CachePayload> {
 
   const bytes = new Uint8Array(await response.arrayBuffer());
   const decoded = decodeFlipsDelta(bytes, accountNamesById);
-  const flips = decoded.flips.sort((a, b) => (b.updatedTime || b.closedTime || b.openedTime) - (a.updatedTime || a.closedTime || a.openedTime));
+  const flips = (await fillItemMeta(decoded.flips))
+    .sort((a, b) => (b.updatedTime || b.closedTime || b.openedTime) - (a.updatedTime || a.closedTime || a.openedTime));
 
   return {
     accounts,
