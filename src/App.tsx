@@ -649,31 +649,44 @@ export default function App({ devBypassAuth = false }: AppProps) {
 
           <div className="md:hidden space-y-2">
             <div className="grid grid-cols-[1fr_auto] gap-2">
-              <div className="grid grid-cols-4 gap-2 min-w-0">
+              <div className="grid grid-cols-5 gap-2 min-w-0">
                 <button
-                  onClick={isJournalRoute ? navigateHome : navigateJournal}
+                  onClick={navigateHome}
+                  className={`h-9 px-2 border rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors duration-150 min-w-0 cursor-pointer ${
+                    isHomeRoute
+                      ? "bg-[#5865F2] border-[#5865F2] text-white"
+                      : "bg-[#4e5058]/40 border-[#3f4147]/50 text-stone-300 hover:bg-[#5865F2]/20 hover:text-white"
+                  }`}
+                  id="mobile-dashboard-header-link"
+                >
+                  <Home className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">Home</span>
+                </button>
+
+                <button
+                  onClick={navigateJournal}
                   className={`h-9 px-2 border rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors duration-150 min-w-0 cursor-pointer ${
                     isJournalRoute
-                      ? "bg-[#1e1f22] border-[#3f4147]/40 text-stone-200 hover:bg-[#35373c]/50"
+                      ? "bg-[#5865F2] border-[#5865F2] text-white"
                       : "bg-[#4e5058]/40 border-[#3f4147]/50 text-stone-300 hover:bg-[#5865F2]/20 hover:text-white"
                   }`}
                   id="mobile-journal-header-link"
                 >
-                  {isJournalRoute ? <Home className="w-3.5 h-3.5 shrink-0" /> : <BookOpenText className="w-3.5 h-3.5 shrink-0" />}
-                  <span className="truncate">{isJournalRoute ? "Home" : "Journal"}</span>
+                  <BookOpenText className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">Journal</span>
                 </button>
 
                 <button
-                  onClick={isOsrsFlipsRoute ? navigateHome : navigateOsrsFlips}
+                  onClick={navigateOsrsFlips}
                   className={`h-9 px-2 border rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors duration-150 min-w-0 cursor-pointer ${
                     isOsrsFlipsRoute
-                      ? "bg-[#1e1f22] border-[#3f4147]/40 text-stone-200 hover:bg-[#35373c]/50"
+                      ? "bg-emerald-500 border-emerald-500 text-stone-950"
                       : "bg-emerald-500/15 border-emerald-500/25 text-emerald-200 hover:bg-emerald-500/25 hover:text-white"
                   }`}
                   id="mobile-osrs-flips-header-link"
                 >
-                  {isOsrsFlipsRoute ? <Home className="w-3.5 h-3.5 shrink-0" /> : <Coins className="w-3.5 h-3.5 shrink-0" />}
-                  <span className="truncate">{isOsrsFlipsRoute ? "Home" : "OSRS"}</span>
+                  <Coins className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">OSRS</span>
                 </button>
 
                 <a
@@ -795,29 +808,42 @@ export default function App({ devBypassAuth = false }: AppProps) {
           {/* Tailscale Configurator, Live Clock, Moon, Custom Unraid Deep Link */}
           <div className="hidden md:flex flex-wrap items-center gap-2.5">
             <button
-              onClick={isJournalRoute ? navigateHome : navigateJournal}
+              onClick={navigateHome}
+              className={`px-3.5 py-1.5 border rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors duration-150 shrink-0 cursor-pointer ${
+                isHomeRoute
+                  ? "bg-[#5865F2] border-[#5865F2] text-white"
+                  : "bg-[#4e5058]/40 border-[#3f4147]/50 text-stone-300 hover:bg-[#5865F2]/20 hover:text-white"
+              }`}
+              id="dashboard-header-link"
+            >
+              <Home className="w-3.5 h-3.5" />
+              <span>Dashboard</span>
+            </button>
+
+            <button
+              onClick={navigateJournal}
               className={`px-3.5 py-1.5 border rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors duration-150 shrink-0 cursor-pointer ${
                 isJournalRoute
-                  ? "bg-[#1e1f22] border-[#3f4147]/40 text-stone-200 hover:bg-[#35373c]/50"
+                  ? "bg-[#5865F2] border-[#5865F2] text-white"
                   : "bg-[#4e5058]/40 border-[#3f4147]/50 text-stone-300 hover:bg-[#5865F2]/20 hover:text-white"
               }`}
               id="journal-header-link"
             >
-              {isJournalRoute ? <Home className="w-3.5 h-3.5" /> : <BookOpenText className="w-3.5 h-3.5" />}
-              <span>{isJournalRoute ? "Dashboard" : "Journal"}</span>
+              <BookOpenText className="w-3.5 h-3.5" />
+              <span>Journal</span>
             </button>
 
             <button
-              onClick={isOsrsFlipsRoute ? navigateHome : navigateOsrsFlips}
+              onClick={navigateOsrsFlips}
               className={`px-3.5 py-1.5 border rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors duration-150 shrink-0 cursor-pointer ${
                 isOsrsFlipsRoute
-                  ? "bg-[#1e1f22] border-[#3f4147]/40 text-stone-200 hover:bg-[#35373c]/50"
+                  ? "bg-emerald-500 border-emerald-500 text-stone-950"
                   : "bg-emerald-500/15 border-emerald-500/25 text-emerald-200 hover:bg-emerald-500/25 hover:text-white"
               }`}
               id="osrs-flips-header-link"
             >
-              {isOsrsFlipsRoute ? <Home className="w-3.5 h-3.5" /> : <Coins className="w-3.5 h-3.5" />}
-              <span>{isOsrsFlipsRoute ? "Dashboard" : "OSRS Flips"}</span>
+              <Coins className="w-3.5 h-3.5" />
+              <span>OSRS Flips</span>
             </button>
 
             {/* Real Unraid WebUI deep link for Dalen */}

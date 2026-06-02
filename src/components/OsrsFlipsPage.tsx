@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent as ReactMouseEvent, type ReactNode, type RefObject } from "react";
 import {
   ArrowLeft,
   BarChart3,
@@ -109,6 +109,22 @@ function formatTime(epochSeconds: number) {
     hour: "2-digit",
     minute: "2-digit"
   });
+}
+
+function formatShortTime(epochSeconds: number) {
+  if (!epochSeconds) return "Open";
+  return new Date(epochSeconds * 1000).toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short"
+  });
+}
+
+function buyPriceEach(flip: OsrsFlip) {
+  return flip.openedQuantity > 0 ? Math.round(flip.spent / flip.openedQuantity) : 0;
+}
+
+function sellPriceEach(flip: OsrsFlip) {
+  return flip.closedQuantity > 0 ? Math.round((flip.receivedPostTax + flip.taxPaid) / flip.closedQuantity) : 0;
 }
 
 function statusClass(status: FlipStatus) {
@@ -318,6 +334,17 @@ function CumulativeProfitChart({
   domainStart: number;
   domainEnd: number;
 }) {
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const [tooltip, setTooltip] = useState<{
+    x: number;
+    y: number;
+    itemName: string;
+    accountName: string;
+    seriesName: string;
+    time: number;
+    flipProfit: number;
+    cumulativeProfit: number;
+  } | null>(null);
   const series = useMemo(() => buildCumulativeSeries(flips, mode), [flips, mode]);
   const allPoints = series.flatMap((item) => item.points);
   const width = 1100;
@@ -336,9 +363,29 @@ function CumulativeProfitChart({
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => minProfit + profitRange * ratio);
   const xTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => minTime + timeRange * ratio);
   const rangeLabel = `${new Date(minTime * 1000).toLocaleDateString("en-GB", { month: "short", day: "2-digit" })} - ${new Date(maxTime * 1000).toLocaleDateString("en-GB", { month: "short", day: "2-digit" })}`;
+  const showTooltip = (
+    event: ReactMouseEvent<SVGCircleElement>,
+    point: typeof allPoints[number],
+    seriesName: string
+  ) => {
+    const rect = wrapperRef.current?.getBoundingClientRect();
+    const localX = rect ? event.clientX - rect.left : event.clientX;
+    const localY = rect ? event.clientY - rect.top : event.clientY;
+    const maxX = Math.max(8, (rect?.width || 600) - 278);
+    setTooltip({
+      x: Math.min(Math.max(localX + 14, 8), maxX),
+      y: Math.max(localY - 112, 8),
+      itemName: point.itemName,
+      accountName: point.accountName,
+      seriesName,
+      time: point.time,
+      flipProfit: point.flipProfit,
+      cumulativeProfit: point.profit
+    });
+  };
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-[#1e1f22] bg-[#0b0f16]/60">
+    <div ref={wrapperRef} className="relative overflow-x-auto rounded-xl border border-[#1e1f22] bg-[#0b0f16]/60">
       <svg ref={svgRef} viewBox={`0 0 ${width} ${height}`} className="min-w-[780px] w-full h-auto" role="img" aria-label="Cumulative profit over time">
         <rect width={width} height={height} fill="#0b0f16" />
         <text x={pad.left} y={28} fill="#ffffff" fontSize="17" fontWeight="800">Cumulative Profit Over Time</text>
@@ -376,19 +423,31 @@ function CumulativeProfitChart({
                   key={`${item.name}-${point.time}-${point.itemName}-${point.profit}`}
                   cx={toX(point.time)}
                   cy={toY(point.profit)}
-                  r="8"
+                  r="5"
+                  fill={item.color}
+                  stroke="#0b0f16"
+                  strokeWidth="2"
+                  className="cursor-crosshair"
+                  onMouseMove={(event) => showTooltip(event, point, item.name)}
+                  onMouseEnter={(event) => showTooltip(event, point, item.name)}
+                  onMouseLeave={() => setTooltip(null)}
+                />
+              ))}
+              {item.points.map((point) => (
+                <circle
+                  key={`${item.name}-${point.time}-${point.itemName}-${point.profit}-hit`}
+                  cx={toX(point.time)}
+                  cy={toY(point.profit)}
+                  r="14"
                   fill={item.color}
                   fillOpacity="0.001"
                   stroke={item.color}
                   strokeOpacity="0"
-                >
-                  <title>
-                    {`${point.itemName}
-${item.name !== "Combined" ? `${point.accountName}\n` : ""}${new Date(point.time * 1000).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
-Flip profit: ${formatExactGp(point.flipProfit)}
-Cumulative profit: ${formatExactGp(point.profit)}`}
-                  </title>
-                </circle>
+                  className="cursor-crosshair"
+                  onMouseMove={(event) => showTooltip(event, point, item.name)}
+                  onMouseEnter={(event) => showTooltip(event, point, item.name)}
+                  onMouseLeave={() => setTooltip(null)}
+                />
               ))}
               {lastPoint && <circle cx={toX(lastPoint.time)} cy={toY(lastPoint.profit)} r="5" fill={item.color} stroke="#0b0f16" strokeWidth="2" />}
             </g>
@@ -398,6 +457,30 @@ Cumulative profit: ${formatExactGp(point.profit)}`}
           <text x={width / 2} y={height / 2} fill="#64748b" fontSize="14" fontFamily="monospace" textAnchor="middle">No finished flips in this time window</text>
         )}
       </svg>
+      {tooltip && (
+        <div
+          className="absolute z-20 w-64 rounded-xl border border-emerald-500/25 bg-[#0b0f16]/95 p-3 text-xs shadow-lg pointer-events-none"
+          style={{
+            left: tooltip.x,
+            top: tooltip.y
+          }}
+        >
+          <div className="text-white font-black truncate">{tooltip.itemName}</div>
+          <div className="mt-0.5 text-[10px] text-stone-400 font-mono">
+            {tooltip.seriesName !== "Combined" ? `${tooltip.accountName} / ` : ""}{formatTime(tooltip.time)}
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <div>
+              <div className="text-[9px] uppercase tracking-widest text-stone-500 font-mono">Flip</div>
+              <div className={`font-mono font-bold ${profitClass(tooltip.flipProfit)}`}>{formatExactGp(tooltip.flipProfit)}</div>
+            </div>
+            <div>
+              <div className="text-[9px] uppercase tracking-widest text-stone-500 font-mono">Total</div>
+              <div className={`font-mono font-bold ${profitClass(tooltip.cumulativeProfit)}`}>{formatExactGp(tooltip.cumulativeProfit)}</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -430,6 +513,43 @@ function MetricCard({
       </div>
       <div className="mt-4 text-xl font-black text-white tracking-tight">{value}</div>
       <div className="mt-1 text-[10px] text-stone-400 font-mono">{detail}</div>
+    </div>
+  );
+}
+
+function FlipMovementCard({ label, flip, tone }: { label: string; flip?: OsrsFlip; tone: "green" | "red" }) {
+  const isGreen = tone === "green";
+  return (
+    <div className="bg-[#1e1f22]/55 border border-[#3f4147]/25 rounded-xl p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <ItemIcon src={flip?.itemIconUrl} name={flip?.itemName || label} className="w-11 h-11" />
+          <div className="min-w-0">
+            <span className="text-[9px] uppercase font-mono tracking-widest text-stone-500 font-bold">{label}</span>
+            <div className="text-sm font-black text-white truncate">{flip?.itemName || "No finished flips"}</div>
+            {flip && <div className="text-[10px] text-stone-500 font-mono">{flip.accountName} / {formatShortTime(getFlipTime(flip))}</div>}
+          </div>
+        </div>
+        <div className={`text-right text-sm font-mono font-black shrink-0 ${isGreen ? "text-emerald-300" : "text-rose-300"}`}>
+          {flip ? formatGp(flip.profit) : "--"}
+        </div>
+      </div>
+      {flip && (
+        <div className="mt-3 grid grid-cols-3 gap-2 text-[10px] font-mono">
+          <div className="rounded-lg bg-[#0b0f16]/70 border border-[#3f4147]/20 p-2">
+            <div className="text-stone-500 uppercase tracking-wider">Buy ea</div>
+            <div className="text-stone-200 font-bold mt-0.5">{formatExactGp(buyPriceEach(flip))}</div>
+          </div>
+          <div className="rounded-lg bg-[#0b0f16]/70 border border-[#3f4147]/20 p-2">
+            <div className="text-stone-500 uppercase tracking-wider">Sell ea</div>
+            <div className="text-stone-200 font-bold mt-0.5">{flip.closedQuantity ? formatExactGp(sellPriceEach(flip)) : "Open"}</div>
+          </div>
+          <div className="rounded-lg bg-[#0b0f16]/70 border border-[#3f4147]/20 p-2">
+            <div className="text-stone-500 uppercase tracking-wider">Qty</div>
+            <div className="text-stone-200 font-bold mt-0.5">{wholeNumber.format(flip.closedQuantity || flip.openedQuantity)}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -583,8 +703,10 @@ export default function OsrsFlipsPage({ onBackHome }: { onBackHome: () => void }
     };
   }, [payload, timelineFlips]);
 
-  const itemLeaders = aggregateBy(timelineFlips, (flip) => flip.itemId).slice(0, 5);
-  const accountLeaders = aggregateBy(timelineFlips, (flip) => flip.accountName).slice(0, 5);
+  const finishedFlips = timelineFlips.filter((flip) => !flip.deleted && flip.status === "FINISHED");
+  const biggestWinFlip = finishedFlips.reduce<OsrsFlip | undefined>((best, flip) => !best || flip.profit > best.profit ? flip : best, undefined);
+  const biggestLossFlip = finishedFlips.reduce<OsrsFlip | undefined>((worst, flip) => !worst || flip.profit < worst.profit ? flip : worst, undefined);
+  const itemLeaders = aggregateBy(timelineFlips, (flip) => flip.itemId).slice(0, 4);
   const accounts = Object.keys(payload?.accounts || {});
   const uniqueItems = new Set(timelineFlips.filter((flip) => !flip.deleted && flip.status === "FINISHED").map((flip) => flip.itemId)).size;
   const activityFlips = timelineFlips.filter((flip) => flip.status !== "BUYING");
@@ -799,14 +921,8 @@ export default function OsrsFlipsPage({ onBackHome }: { onBackHome: () => void }
             </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="bg-[#1e1f22]/55 border border-[#3f4147]/25 rounded-xl p-4">
-              <span className="text-[9px] uppercase font-mono tracking-widest text-stone-500 font-bold">Biggest win</span>
-              <div className="mt-2 text-xl font-black text-emerald-300">{summary ? formatGp(summary.biggestWin) : "--"}</div>
-            </div>
-            <div className="bg-[#1e1f22]/55 border border-[#3f4147]/25 rounded-xl p-4">
-              <span className="text-[9px] uppercase font-mono tracking-widest text-stone-500 font-bold">Biggest loss</span>
-              <div className="mt-2 text-xl font-black text-rose-300">{summary ? formatGp(summary.biggestLoss) : "--"}</div>
-            </div>
+            <FlipMovementCard label="Biggest win" flip={biggestWinFlip} tone="green" />
+            <FlipMovementCard label="Biggest loss" flip={biggestLossFlip} tone="red" />
           </div>
         </div>
 
@@ -830,27 +946,7 @@ export default function OsrsFlipsPage({ onBackHome }: { onBackHome: () => void }
         </div>
       </section>
 
-      <section className="grid grid-cols-1 xl:grid-cols-[1fr_2fr] gap-6">
-        <div className="bg-[#2b2d31] border border-[#1e1f22]/95 rounded-2xl p-4 sm:p-5">
-          <span className="text-[10px] text-[#5865F2] uppercase font-mono font-bold tracking-widest">Accounts</span>
-          <div className="mt-3 space-y-2">
-            {accountLeaders.map((account) => (
-              <button
-                key={account.key}
-                onClick={() => setAccountFilter(String(account.key))}
-                className="w-full bg-[#1e1f22]/55 hover:bg-[#35373c]/50 border border-[#3f4147]/25 rounded-xl p-3 text-left cursor-pointer"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs text-white font-bold truncate">{account.label}</span>
-                  <span className={`text-xs font-mono font-bold shrink-0 ${profitClass(account.profit)}`}>{formatGp(account.profit)}</span>
-                </div>
-                <div className="mt-1 text-[10px] text-stone-500 font-mono">{account.flips} finished flips</div>
-              </button>
-            ))}
-            {!accountLeaders.length && <div className="text-xs text-stone-500 font-mono py-6 text-center">No account profit yet</div>}
-          </div>
-        </div>
-
+      <section>
         <div className="bg-[#2b2d31] border border-[#1e1f22]/95 rounded-2xl p-4 sm:p-5 overflow-hidden">
           <div className="flex items-center justify-between gap-3 mb-3">
             <div>
