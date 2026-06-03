@@ -39,6 +39,8 @@ assert.equal(profitRun.alerts[0].previous?.profit, 11_150_000);
 
 const profitEmbed = buildDiscordRecordEmbed(profitRun.alerts[0]);
 assert.equal(profitEmbed.embeds[0].color, 0xf1c40f);
+assert.equal(profitEmbed.embeds[0].title, "PROFIT RECORD: +18,420,000 gp");
+assert.equal(profitEmbed.embeds[0].description.includes("\u001b[1;33m+18,420,000 gp\u001b[0m"), true);
 assert.equal(profitEmbed.embeds[0].fields[0].value, "**+18,420,000 gp**");
 
 const lossFlip: OsrsRecordFlip = {
@@ -54,4 +56,6 @@ assert.equal(lossRun.alerts[0].kind, "loss");
 
 const lossEmbed = buildDiscordRecordEmbed(lossRun.alerts[0]);
 assert.equal(lossEmbed.embeds[0].color, 0xe11d48);
+assert.equal(lossEmbed.embeds[0].title, "LOSS RECORD: -2,220,000 gp");
+assert.equal(lossEmbed.embeds[0].description.includes("\u001b[1;31m-2,220,000 gp\u001b[0m"), true);
 assert.equal(lossEmbed.embeds[0].fields[0].value, "**-2,220,000 gp**");

@@ -56,6 +56,11 @@ export function formatExactGp(value: number) {
   return `${sign}${wholeNumber.format(value)} gp`;
 }
 
+function formatDiscordAnsiGp(value: number) {
+  const colorCode = value >= 0 ? 33 : 31;
+  return `\`\`\`ansi\n\u001b[1;${colorCode}m${formatExactGp(value)}\u001b[0m\n\`\`\``;
+}
+
 export function getRecordRedisKey(cacheKeyHash: string) {
   return `${OSRS_RECORDS_REDIS_KEY_PREFIX}:${cacheKeyHash || "default"}`;
 }
@@ -123,20 +128,21 @@ export function buildDiscordRecordEmbed(alert: OsrsRecordAlert) {
   const quantity = flip.closedQuantity || flip.openedQuantity || 0;
   const buyEach = flip.openedQuantity > 0 ? Math.round(flip.spent / flip.openedQuantity) : 0;
   const sellEach = flip.closedQuantity > 0 ? Math.round((flip.receivedPostTax + flip.taxPaid) / flip.closedQuantity) : 0;
+  const recordLabel = isProfit ? "PROFIT RECORD" : "LOSS RECORD";
 
   return {
-    username: "HMG OSRS Records",
+    username: "OSRS FLIP RECORD",
     embeds: [
       {
-        title: isProfit ? "New biggest profit flip" : "New biggest loss flip",
-        description: `**${flip.itemName}** on ${flip.accountName}`,
+        title: `${recordLabel}: ${formatExactGp(flip.profit)}`,
+        description: `**${flip.itemName}**\n${formatDiscordAnsiGp(flip.profit)}`,
         color: isProfit ? 0xf1c40f : 0xe11d48,
         thumbnail: flip.itemIconUrl ? { url: flip.itemIconUrl } : undefined,
         fields: [
           {
-            name: isProfit ? "Profit" : "Loss",
+            name: isProfit ? "New biggest profit" : "New biggest loss",
             value: `**${formatExactGp(flip.profit)}**`,
-            inline: true
+            inline: false
           },
           {
             name: "Previous record",
@@ -146,6 +152,11 @@ export function buildDiscordRecordEmbed(alert: OsrsRecordAlert) {
           {
             name: "Quantity",
             value: wholeNumber.format(quantity),
+            inline: true
+          },
+          {
+            name: "Account",
+            value: flip.accountName,
             inline: true
           },
           {
