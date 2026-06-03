@@ -63,6 +63,9 @@ interface ApiResponse {
 
 const wholeNumber = new Intl.NumberFormat("en-GB");
 const chartColors = ["#22c55e", "#38bdf8", "#a78bfa", "#f59e0b", "#fb7185", "#2dd4bf"];
+const chartProfitColor = "#22c55e";
+const chartLossColor = "#fb7185";
+const chartFlatColor = "#94a3b8";
 const timeframes = [
   { id: "hour", label: "Hour", seconds: 60 * 60 },
   { id: "day", label: "Day", seconds: 60 * 60 * 24 },
@@ -338,6 +341,9 @@ function CumulativeProfitChart({
   const [tooltip, setTooltip] = useState<{
     x: number;
     y: number;
+    chartX: number;
+    chartY: number;
+    color: string;
     itemName: string;
     accountName: string;
     seriesName: string;
@@ -360,41 +366,79 @@ function CumulativeProfitChart({
   const timeRange = Math.max(1, maxTime - minTime);
   const toX = (time: number) => pad.left + ((time - minTime) / timeRange) * plotWidth;
   const toY = (profit: number) => pad.top + plotHeight - ((profit - minProfit) / profitRange) * plotHeight;
+  const zeroY = toY(0);
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => minProfit + profitRange * ratio);
   const xTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => minTime + timeRange * ratio);
   const rangeLabel = `${new Date(minTime * 1000).toLocaleDateString("en-GB", { month: "short", day: "2-digit" })} - ${new Date(maxTime * 1000).toLocaleDateString("en-GB", { month: "short", day: "2-digit" })}`;
+  const segmentTone = (profit: number) => (profit > 0 ? chartProfitColor : profit < 0 ? chartLossColor : chartFlatColor);
   const showTooltip = (
-    event: ReactMouseEvent<SVGCircleElement>,
-    point: typeof allPoints[number],
-    seriesName: string
+    event: ReactMouseEvent<SVGRectElement>
   ) => {
+    const svg = svgRef.current;
     const rect = wrapperRef.current?.getBoundingClientRect();
+    if (!svg || !rect || !allPoints.length) return;
+
+    const svgRect = svg.getBoundingClientRect();
+    const svgX = ((event.clientX - svgRect.left) / svgRect.width) * width;
+    const hoverTime = minTime + ((Math.min(Math.max(svgX, pad.left), width - pad.right) - pad.left) / plotWidth) * timeRange;
+    let nearest = { point: allPoints[0], distance: Math.abs(allPoints[0].time - hoverTime), seriesName: series[0]?.name || "Combined" };
+
+    for (const item of series) {
+      for (const point of item.points) {
+        const distance = Math.abs(point.time - hoverTime);
+        if (distance < nearest.distance) {
+          nearest = { point, distance, seriesName: item.name };
+        }
+      }
+    }
+
     const localX = rect ? event.clientX - rect.left : event.clientX;
     const localY = rect ? event.clientY - rect.top : event.clientY;
     const maxX = Math.max(8, (rect?.width || 600) - 278);
     setTooltip({
       x: Math.min(Math.max(localX + 14, 8), maxX),
       y: Math.max(localY - 112, 8),
-      itemName: point.itemName,
-      accountName: point.accountName,
-      seriesName,
-      time: point.time,
-      flipProfit: point.flipProfit,
-      cumulativeProfit: point.profit
+      chartX: toX(nearest.point.time),
+      chartY: toY(nearest.point.profit),
+      color: segmentTone(nearest.point.flipProfit),
+      itemName: nearest.point.itemName,
+      accountName: nearest.point.accountName,
+      seriesName: nearest.seriesName,
+      time: nearest.point.time,
+      flipProfit: nearest.point.flipProfit,
+      cumulativeProfit: nearest.point.profit
     });
   };
 
   return (
     <div ref={wrapperRef} className="relative overflow-x-auto rounded-xl border border-[#1e1f22] bg-[#0b0f16]/60">
       <svg ref={svgRef} viewBox={`0 0 ${width} ${height}`} className="min-w-[780px] w-full h-auto" role="img" aria-label="Cumulative profit over time">
-        <rect width={width} height={height} fill="#0b0f16" />
+        <defs>
+          <linearGradient id="osrsChartBackground" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#111827" />
+            <stop offset="100%" stopColor="#070b12" />
+          </linearGradient>
+          <filter id="osrsChartGlow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="0" stdDeviation="2.4" floodColor="#22c55e" floodOpacity="0.24" />
+          </filter>
+        </defs>
+        <rect width={width} height={height} fill="url(#osrsChartBackground)" />
+        <rect
+          x={pad.left}
+          y={pad.top}
+          width={plotWidth}
+          height={plotHeight}
+          fill="#0b0f16"
+          opacity="0.52"
+          rx="10"
+        />
         <text x={pad.left} y={28} fill="#ffffff" fontSize="17" fontWeight="800">Cumulative Profit Over Time</text>
         <text x={width - pad.right} y={28} fill="#94a3b8" fontSize="11" fontFamily="monospace" textAnchor="end">{rangeLabel}</text>
         {yTicks.map((tick) => {
           const y = toY(tick);
           return (
             <g key={tick}>
-              <line x1={pad.left} x2={width - pad.right} y1={y} y2={y} stroke="#243244" strokeDasharray="4 5" />
+              <line x1={pad.left} x2={width - pad.right} y1={y} y2={y} stroke="#223047" strokeDasharray="4 7" opacity="0.72" />
               <text x={pad.left - 12} y={y + 4} fill="#a9bdd6" fontSize="12" fontFamily="monospace" textAnchor="end">{formatAxisGp(tick)}</text>
             </g>
           );
@@ -403,56 +447,87 @@ function CumulativeProfitChart({
           const x = toX(tick);
           return (
             <g key={tick}>
-              <line x1={x} x2={x} y1={pad.top} y2={height - pad.bottom} stroke="#1d2a3d" strokeDasharray="3 5" />
+              <line x1={x} x2={x} y1={pad.top} y2={height - pad.bottom} stroke="#1c2a40" strokeDasharray="3 7" opacity="0.58" />
               <text x={x} y={height - 18} fill="#8da0b6" fontSize="11" fontFamily="monospace" textAnchor="middle">
                 {new Date(tick * 1000).toLocaleDateString("en-GB", { month: "short", day: "2-digit" })}
               </text>
             </g>
           );
         })}
-        <line x1={pad.left} x2={width - pad.right} y1={toY(0)} y2={toY(0)} stroke="#475569" />
-        <line x1={pad.left} x2={pad.left} y1={pad.top} y2={height - pad.bottom} stroke="#475569" />
+        <line x1={pad.left} x2={width - pad.right} y1={zeroY} y2={zeroY} stroke="#64748b" strokeWidth="1.2" opacity="0.8" />
+        <line x1={pad.left} x2={pad.left} y1={pad.top} y2={height - pad.bottom} stroke="#64748b" strokeWidth="1.2" opacity="0.72" />
         {series.map((item) => {
-          const path = item.points.map((point, index) => `${index === 0 ? "M" : "L"} ${toX(point.time).toFixed(2)} ${toY(point.profit).toFixed(2)}`).join(" ");
-          const lastPoint = item.points[item.points.length - 1];
+          let previousProfit = 0;
           return (
             <g key={item.name}>
-              <path d={path} fill="none" stroke={item.color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-              {item.points.map((point) => (
-                <circle
-                  key={`${item.name}-${point.time}-${point.itemName}-${point.profit}`}
-                  cx={toX(point.time)}
-                  cy={toY(point.profit)}
-                  r="5"
-                  fill={item.color}
-                  stroke="#0b0f16"
-                  strokeWidth="2"
-                  className="cursor-crosshair"
-                  onMouseMove={(event) => showTooltip(event, point, item.name)}
-                  onMouseEnter={(event) => showTooltip(event, point, item.name)}
-                  onMouseLeave={() => setTooltip(null)}
-                />
-              ))}
-              {item.points.map((point) => (
-                <circle
-                  key={`${item.name}-${point.time}-${point.itemName}-${point.profit}-hit`}
-                  cx={toX(point.time)}
-                  cy={toY(point.profit)}
-                  r="14"
-                  fill={item.color}
-                  fillOpacity="0.001"
-                  stroke={item.color}
-                  strokeOpacity="0"
-                  className="cursor-crosshair"
-                  onMouseMove={(event) => showTooltip(event, point, item.name)}
-                  onMouseEnter={(event) => showTooltip(event, point, item.name)}
-                  onMouseLeave={() => setTooltip(null)}
-                />
-              ))}
-              {lastPoint && <circle cx={toX(lastPoint.time)} cy={toY(lastPoint.profit)} r="5" fill={item.color} stroke="#0b0f16" strokeWidth="2" />}
+              {item.points.map((point, index) => {
+                const startTime = index === 0 ? minTime : item.points[index - 1].time;
+                const startProfit = index === 0 ? 0 : previousProfit;
+                previousProfit = point.profit;
+                const startX = toX(startTime);
+                const endX = toX(point.time);
+                const startY = toY(startProfit);
+                const endY = toY(point.profit);
+                const segmentColor = segmentTone(point.flipProfit);
+                return (
+                  <g key={`${item.name}-${point.time}-${point.profit}`}>
+                    <path
+                      d={`M ${startX.toFixed(2)} ${zeroY.toFixed(2)} L ${startX.toFixed(2)} ${startY.toFixed(2)} L ${endX.toFixed(2)} ${endY.toFixed(2)} L ${endX.toFixed(2)} ${zeroY.toFixed(2)} Z`}
+                      fill={segmentColor}
+                      opacity={mode === "individual" ? 0.07 : 0.11}
+                    />
+                    <path
+                      d={`M ${startX.toFixed(2)} ${startY.toFixed(2)} L ${endX.toFixed(2)} ${endY.toFixed(2)}`}
+                      fill="none"
+                      stroke={segmentColor}
+                      strokeWidth={mode === "individual" ? 3 : 4}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      vectorEffect="non-scaling-stroke"
+                      filter={mode === "combined" && point.flipProfit > 0 ? "url(#osrsChartGlow)" : undefined}
+                      opacity={mode === "individual" ? 0.9 : 1}
+                    />
+                  </g>
+                );
+              })}
             </g>
           );
         })}
+        {tooltip && (
+          <g pointerEvents="none">
+            <line
+              x1={tooltip.chartX}
+              x2={tooltip.chartX}
+              y1={pad.top}
+              y2={height - pad.bottom}
+              stroke="#cbd5e1"
+              strokeDasharray="3 6"
+              opacity="0.34"
+            />
+            <line
+              x1={pad.left}
+              x2={width - pad.right}
+              y1={tooltip.chartY}
+              y2={tooltip.chartY}
+              stroke="#cbd5e1"
+              strokeDasharray="3 6"
+              opacity="0.22"
+            />
+            <circle cx={tooltip.chartX} cy={tooltip.chartY} r="6.5" fill="#0b0f16" stroke={tooltip.color} strokeWidth="2.4" />
+            <circle cx={tooltip.chartX} cy={tooltip.chartY} r="2.5" fill={tooltip.color} />
+          </g>
+        )}
+        <rect
+          x={pad.left}
+          y={pad.top}
+          width={plotWidth}
+          height={plotHeight}
+          fill="transparent"
+          className="cursor-crosshair"
+          onMouseMove={showTooltip}
+          onMouseEnter={showTooltip}
+          onMouseLeave={() => setTooltip(null)}
+        />
         {series.length === 0 && (
           <text x={width / 2} y={height / 2} fill="#64748b" fontSize="14" fontFamily="monospace" textAnchor="middle">No finished flips in this time window</text>
         )}
