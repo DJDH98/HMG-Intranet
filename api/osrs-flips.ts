@@ -1,4 +1,13 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { createHash } from "node:crypto";
+import {
+  createOsrsRecordStore,
+  evaluateRecordAlerts,
+  getStableFlipId,
+  hasOsrsRecordStoreEnv,
+  sendDiscordRecordAlert,
+  type OsrsRecordFlip
+} from "../src/osrsRecordAlerts.js";
 
 type FlipStatus = "BUYING" | "SELLING" | "FINISHED";
 
@@ -467,6 +476,51 @@ function getCacheKey(req: VercelRequest) {
     || "";
 }
 
+function getCacheKeyHash(cacheKey: string) {
+  return createHash("sha256").update(cacheKey || "default").digest("hex").slice(0, 24);
+}
+
+function toRecordFlip(flip: OsrsFlip): OsrsRecordFlip {
+  return {
+    id: getStableFlipId(flip),
+    accountName: flip.accountName,
+    itemId: flip.itemId,
+    itemName: flip.itemName,
+    itemIconUrl: flip.itemIconUrl,
+    openedTime: flip.openedTime,
+    openedQuantity: flip.openedQuantity,
+    spent: flip.spent,
+    closedTime: flip.closedTime,
+    closedQuantity: flip.closedQuantity,
+    receivedPostTax: flip.receivedPostTax,
+    profit: flip.profit,
+    taxPaid: flip.taxPaid
+  };
+}
+
+async function processRecordAlerts(payload: CachePayload, cacheKey: string) {
+  const webhookUrl = process.env.OSRS_RECORD_DISCORD_WEBHOOK_URL || process.env.DISCORD_OSRS_WEBHOOK_URL;
+  if (!webhookUrl || !hasOsrsRecordStoreEnv(process.env)) return;
+
+  try {
+    const store = createOsrsRecordStore();
+    const cacheKeyHash = getCacheKeyHash(cacheKey);
+    const previousState = await store.getState(cacheKeyHash);
+    const recordFlips = payload.flips
+      .filter((flip) => !flip.deleted && flip.status === "FINISHED")
+      .map(toRecordFlip);
+    const { alerts, nextState } = evaluateRecordAlerts(previousState, recordFlips);
+
+    for (const alert of alerts) {
+      await sendDiscordRecordAlert(webhookUrl, alert);
+    }
+
+    await store.setState(cacheKeyHash, nextState);
+  } catch (error: any) {
+    console.warn("OSRS record alert failed:", error.message || error);
+  }
+}
+
 async function fetchLivePayload(req: VercelRequest): Promise<CachePayload> {
   const login = await getLogin(req);
   const authHeader = { Authorization: `Bearer ${login.jwt}` };
@@ -519,6 +573,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const payload = await fetchLivePayload(req);
+    await processRecordAlerts(payload, cacheKey);
     cachedPayload = { cacheKey, data: payload, cachedAt: now };
     return res.json({ success: true, data: payload, cached: false, setupRequired: false });
   } catch (error: any) {
