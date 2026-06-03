@@ -380,15 +380,38 @@ function CumulativeProfitChart({
 
     const svgRect = svg.getBoundingClientRect();
     const svgX = ((event.clientX - svgRect.left) / svgRect.width) * width;
-    const hoverTime = minTime + ((Math.min(Math.max(svgX, pad.left), width - pad.right) - pad.left) / plotWidth) * timeRange;
+    const hoverX = Math.min(Math.max(svgX, pad.left), width - pad.right);
+    const hoverTime = minTime + ((hoverX - pad.left) / plotWidth) * timeRange;
     let nearest = { point: allPoints[0], distance: Math.abs(allPoints[0].time - hoverTime), seriesName: series[0]?.name || "Combined" };
+    let nearestSeries = series[0];
 
     for (const item of series) {
       for (const point of item.points) {
         const distance = Math.abs(point.time - hoverTime);
         if (distance < nearest.distance) {
           nearest = { point, distance, seriesName: item.name };
+          nearestSeries = item;
         }
+      }
+    }
+
+    let hoverProfit = nearest.point.profit;
+    const points = nearestSeries?.points || [];
+    if (points.length) {
+      let previousTime = minTime;
+      let previousProfit = 0;
+
+      for (const point of points) {
+        if (hoverTime <= point.time) {
+          const segmentRange = Math.max(1, point.time - previousTime);
+          const segmentRatio = Math.min(Math.max((hoverTime - previousTime) / segmentRange, 0), 1);
+          hoverProfit = previousProfit + (point.profit - previousProfit) * segmentRatio;
+          break;
+        }
+
+        previousTime = point.time;
+        previousProfit = point.profit;
+        hoverProfit = point.profit;
       }
     }
 
@@ -398,8 +421,8 @@ function CumulativeProfitChart({
     setTooltip({
       x: Math.min(Math.max(localX + 14, 8), maxX),
       y: Math.max(localY - 112, 8),
-      chartX: toX(nearest.point.time),
-      chartY: toY(nearest.point.profit),
+      chartX: hoverX,
+      chartY: toY(hoverProfit),
       color: segmentTone(nearest.point.flipProfit),
       itemName: nearest.point.itemName,
       accountName: nearest.point.accountName,
