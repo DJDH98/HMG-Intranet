@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { ApiRequest, ApiResponse } from "./types.js";
 import { createHash } from "node:crypto";
 import {
   createOsrsRecordStore,
@@ -422,17 +422,21 @@ async function requestJson(url: string, init: RequestInit) {
   return body ? JSON.parse(body) : {};
 }
 
-function readCookie(req: VercelRequest, name: string) {
+function readCookie(req: ApiRequest, name: string) {
   const rawCookie = req.headers.cookie || "";
-  const cookie = rawCookie
+  const cookie = String(rawCookie)
     .split(";")
     .map((part) => part.trim())
     .find((part) => part.startsWith(`${name}=`));
   if (!cookie) return "";
-  return decodeURIComponent(cookie.slice(name.length + 1));
+  try {
+    return decodeURIComponent(cookie.slice(name.length + 1));
+  } catch {
+    return "";
+  }
 }
 
-async function getLogin(req: VercelRequest) {
+async function getLogin(req: ApiRequest) {
   const jwtFromCookie = readCookie(req, COOKIE_NAME);
   if (jwtFromCookie) {
     return { jwt: jwtFromCookie, userId: Number(readCookie(req, USER_ID_COOKIE_NAME) || 0) };
@@ -469,11 +473,12 @@ async function getLogin(req: VercelRequest) {
   return cachedLogin;
 }
 
-function getCacheKey(req: VercelRequest) {
-  return readCookie(req, COOKIE_NAME)
+function getCacheKey(req: ApiRequest) {
+  const rawCacheKey = readCookie(req, COOKIE_NAME)
     || process.env.FLIPPING_COPILOT_JWT
     || process.env.FLIPPING_COPILOT_EMAIL
     || "";
+  return rawCacheKey ? getCacheKeyHash(rawCacheKey) : "";
 }
 
 function getCacheKeyHash(cacheKey: string) {
@@ -521,7 +526,7 @@ async function processRecordAlerts(payload: CachePayload, cacheKey: string) {
   }
 }
 
-async function fetchLivePayload(req: VercelRequest): Promise<CachePayload> {
+async function fetchLivePayload(req: ApiRequest): Promise<CachePayload> {
   const login = await getLogin(req);
   const authHeader = { Authorization: `Bearer ${login.jwt}` };
   const accounts = await requestJson(`${API_HOST}/profit-tracking/rs-account-names`, {
@@ -558,7 +563,7 @@ async function fetchLivePayload(req: VercelRequest): Promise<CachePayload> {
   };
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
     return res.status(405).json({ success: false, error: "Method not allowed" });

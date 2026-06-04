@@ -8,6 +8,10 @@ import {
 } from "../src/journalStorage.js";
 import { requireAuthenticatedRequest } from "./clerkAuth.js";
 
+const MAX_TITLE_LENGTH = 140;
+const MAX_BODY_LENGTH = 20_000;
+const JOURNAL_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
 export default async function handler(req: any, res: any) {
   if (!(await requireAuthenticatedRequest(req, res))) return;
 
@@ -30,6 +34,12 @@ export default async function handler(req: any, res: any) {
       if (typeof date !== "string" || typeof title !== "string" || typeof body !== "string") {
         return res.status(400).json({ success: false, error: "A date, title, and body are required." });
       }
+      if (!JOURNAL_DATE_PATTERN.test(date)) {
+        return res.status(400).json({ success: false, error: "Date must use YYYY-MM-DD format." });
+      }
+      if (title.length > MAX_TITLE_LENGTH || body.length > MAX_BODY_LENGTH) {
+        return res.status(413).json({ success: false, error: "Journal entry is too large." });
+      }
 
       const nextEntries = upsertJournalEntry(await database.listEntries(), { date, title, body });
       const entry = nextEntries.find((journalEntry) => journalEntry.date === date) as JournalEntry | undefined;
@@ -42,8 +52,8 @@ export default async function handler(req: any, res: any) {
 
     if (req.method === "DELETE") {
       const date = typeof req.query?.date === "string" ? req.query.date : "";
-      if (!date) {
-        return res.status(400).json({ success: false, error: "A date is required." });
+      if (!JOURNAL_DATE_PATTERN.test(date)) {
+        return res.status(400).json({ success: false, error: "A valid date is required." });
       }
 
       return res.json({ success: true, entries: await database.deleteEntry(date) });

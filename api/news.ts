@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { ApiRequest, ApiResponse } from './types.js';
 
 // In-memory cache for news (5 minutes)
 let cachedNewsData: any[] = [];
@@ -106,14 +106,14 @@ function cleanDateText(value: string) {
     .trim();
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
   const { query } = (req.body || {}) as { query?: string };
-  const searchQuery = query ? query.trim().toLowerCase() : "";
+  const searchQuery = query ? query.trim().slice(0, 120).toLowerCase() : "";
 
   try {
     const now = Date.now();

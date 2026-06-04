@@ -1,11 +1,11 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { ApiRequest, ApiResponse } from './types.js';
 
 // Simple 3-minute cache for weather
 let cachedWeatherData: any = null;
 let weatherCacheTimestamp = 0;
 const WEATHER_CACHE_DURATION = 3 * 60 * 1000;
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ success: false, error: 'Method not allowed' });
