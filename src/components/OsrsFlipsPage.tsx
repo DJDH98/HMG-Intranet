@@ -76,7 +76,9 @@ const timeframes = [
 ] as const;
 
 type TimeframeId = typeof timeframes[number]["id"];
+type SelectedTimeframeId = TimeframeId | "custom";
 type GraphMode = "combined" | "individual";
+type CustomWindowUnit = "minutes" | "hours" | "days";
 
 function formatCompactNumber(value: number) {
   const abs = Math.abs(value);
@@ -104,6 +106,11 @@ function formatAxisGp(value: number) {
   return `${sign}${formatCompactNumber(value)} gp`;
 }
 
+function formatWindowLabel(value: number, unit: CustomWindowUnit) {
+  const singular = unit.slice(0, -1);
+  return `${value} ${value === 1 ? singular : unit}`;
+}
+
 function formatTime(epochSeconds: number) {
   if (!epochSeconds) return "Open";
   return new Date(epochSeconds * 1000).toLocaleString("en-GB", {
@@ -120,6 +127,33 @@ function formatShortTime(epochSeconds: number) {
     day: "2-digit",
     month: "short"
   });
+}
+
+function formatChartRange(startSeconds: number, endSeconds: number) {
+  const start = new Date(startSeconds * 1000);
+  const end = new Date(endSeconds * 1000);
+  const sameDay = start.toDateString() === end.toDateString();
+  const shortWindow = endSeconds - startSeconds <= 60 * 60 * 24;
+  const date = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short" });
+  const time = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+
+  if (shortWindow && sameDay) {
+    return `${date.format(start)}, ${time.format(start)} - ${time.format(end)}`;
+  }
+
+  if (shortWindow) {
+    return `${date.format(start)} ${time.format(start)} - ${date.format(end)} ${time.format(end)}`;
+  }
+
+  return `${date.format(start)} - ${date.format(end)}`;
+}
+
+function formatChartTick(epochSeconds: number, rangeSeconds: number) {
+  const date = new Date(epochSeconds * 1000);
+  if (rangeSeconds <= 60 * 60 * 24) {
+    return date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+  }
+  return date.toLocaleDateString("en-GB", { month: "short", day: "2-digit" });
 }
 
 function buyPriceEach(flip: OsrsFlip) {
@@ -369,7 +403,7 @@ function CumulativeProfitChart({
   const zeroY = toY(0);
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => minProfit + profitRange * ratio);
   const xTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => minTime + timeRange * ratio);
-  const rangeLabel = `${new Date(minTime * 1000).toLocaleDateString("en-GB", { month: "short", day: "2-digit" })} - ${new Date(maxTime * 1000).toLocaleDateString("en-GB", { month: "short", day: "2-digit" })}`;
+  const rangeLabel = formatChartRange(minTime, maxTime);
   const segmentTone = (profit: number) => (profit > 0 ? chartProfitColor : profit < 0 ? chartLossColor : chartFlatColor);
   const showTooltip = (
     event: ReactMouseEvent<SVGRectElement>
@@ -472,7 +506,7 @@ function CumulativeProfitChart({
             <g key={tick}>
               <line x1={x} x2={x} y1={pad.top} y2={height - pad.bottom} stroke="#1c2a40" strokeDasharray="3 7" opacity="0.58" />
               <text x={x} y={height - 18} fill="#8da0b6" fontSize="11" fontFamily="monospace" textAnchor="middle">
-                {new Date(tick * 1000).toLocaleDateString("en-GB", { month: "short", day: "2-digit" })}
+                {formatChartTick(tick, timeRange)}
               </text>
             </g>
           );
@@ -659,7 +693,9 @@ export default function OsrsFlipsPage({ onBackHome }: { onBackHome: () => void }
   const [setupRequired, setSetupRequired] = useState(false);
   const [warning, setWarning] = useState("");
   const [accountFilter, setAccountFilter] = useState("all");
-  const [timeframe, setTimeframe] = useState<TimeframeId>("month");
+  const [timeframe, setTimeframe] = useState<SelectedTimeframeId>("month");
+  const [customWindowValue, setCustomWindowValue] = useState("90");
+  const [customWindowUnit, setCustomWindowUnit] = useState<CustomWindowUnit>("minutes");
   const [graphMode, setGraphMode] = useState<GraphMode>("combined");
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -744,7 +780,10 @@ export default function OsrsFlipsPage({ onBackHome }: { onBackHome: () => void }
       URL.revokeObjectURL(url);
 
       const link = document.createElement("a");
-      link.download = `osrs-flip-profit-${timeframe}-${graphMode}.jpg`;
+      const windowSlug = timeframe === "custom"
+        ? `custom-${customWindowValue || "window"}-${customWindowUnit}`
+        : timeframe;
+      link.download = `osrs-flip-profit-${windowSlug}-${graphMode}.jpg`;
       link.href = canvas.toDataURL("image/jpeg", 0.94);
       link.click();
     };
@@ -758,10 +797,26 @@ export default function OsrsFlipsPage({ onBackHome }: { onBackHome: () => void }
 
   const flips = payload?.flips || [];
   const visibleFlips = accountFilter === "all" ? flips : flips.filter((flip) => flip.accountName === accountFilter);
+  const customWindowNumber = Math.max(1, Number.parseInt(customWindowValue, 10) || 1);
+  const customWindowSeconds = customWindowNumber * {
+    minutes: 60,
+    hours: 60 * 60,
+    days: 60 * 60 * 24
+  }[customWindowUnit];
+  const selectedWindowLabel = timeframe === "custom"
+    ? formatWindowLabel(customWindowNumber, customWindowUnit)
+    : timeframes.find((item) => item.id === timeframe)?.label || "Selected window";
   const timelineDomain = useMemo(() => {
     const selected = timeframes.find((item) => item.id === timeframe);
     const nowSeconds = Math.floor(Date.now() / 1000);
     const flipTimes = visibleFlips.map((flip) => getFlipTime(flip)).filter((time) => time > 0);
+
+    if (timeframe === "custom") {
+      return {
+        domainStart: nowSeconds - customWindowSeconds,
+        domainEnd: nowSeconds
+      };
+    }
 
     if (!selected || selected.id === "all") {
       const domainStart = flipTimes.length ? Math.min(...flipTimes) : nowSeconds - 60 * 60 * 24 * 30;
@@ -773,10 +828,10 @@ export default function OsrsFlipsPage({ onBackHome }: { onBackHome: () => void }
       domainStart: nowSeconds - selected.seconds,
       domainEnd: nowSeconds
     };
-  }, [timeframe, visibleFlips]);
+  }, [customWindowSeconds, timeframe, visibleFlips]);
   const timelineFlips = useMemo(() => {
     const selected = timeframes.find((item) => item.id === timeframe);
-    if (!selected || selected.id === "all") return visibleFlips;
+    if (timeframe !== "custom" && (!selected || selected.id === "all")) return visibleFlips;
     return visibleFlips.filter((flip) => {
       const flipTime = getFlipTime(flip);
       return flipTime >= timelineDomain.domainStart && flipTime <= timelineDomain.domainEnd;
@@ -920,7 +975,7 @@ export default function OsrsFlipsPage({ onBackHome }: { onBackHome: () => void }
           icon={<Wallet className="w-4 h-4" />}
           label="Total profit"
           value={summary ? formatGp(summary.totalProfit) : "--"}
-          detail={timeframes.find((item) => item.id === timeframe)?.label || "Selected window"}
+          detail={selectedWindowLabel}
           tone={summary && summary.totalProfit < 0 ? "red" : "green"}
         />
         <MetricCard
@@ -970,6 +1025,47 @@ export default function OsrsFlipsPage({ onBackHome }: { onBackHome: () => void }
                   {item.label}
                 </button>
               ))}
+            </div>
+            <div className={`flex items-center gap-1.5 rounded-xl border p-1 transition-colors ${
+              timeframe === "custom"
+                ? "bg-emerald-500/10 border-emerald-500/35"
+                : "bg-[#1e1f22]/70 border-[#3f4147]/30"
+            }`}>
+              <button
+                onClick={() => setTimeframe("custom")}
+                className={`h-8 px-3 rounded-lg text-[11px] font-bold cursor-pointer transition-colors ${
+                  timeframe === "custom" ? "bg-emerald-500 text-stone-950" : "text-stone-400 hover:text-white hover:bg-[#35373c]"
+                }`}
+              >
+                Custom
+              </button>
+              <input
+                type="number"
+                min="1"
+                max="9999"
+                value={customWindowValue}
+                onFocus={() => setTimeframe("custom")}
+                onChange={(event) => {
+                  setTimeframe("custom");
+                  setCustomWindowValue(event.target.value.replace(/[^\d]/g, "").slice(0, 4));
+                }}
+                className="h-8 w-16 rounded-lg border border-[#3f4147]/40 bg-[#0b0f16] px-2 text-center text-[11px] font-bold text-white outline-none focus:border-emerald-400"
+                aria-label="Custom time window value"
+              />
+              <select
+                value={customWindowUnit}
+                onFocus={() => setTimeframe("custom")}
+                onChange={(event) => {
+                  setTimeframe("custom");
+                  setCustomWindowUnit(event.target.value as CustomWindowUnit);
+                }}
+                className="h-8 rounded-lg border border-[#3f4147]/40 bg-[#0b0f16] px-2 text-[11px] font-bold text-stone-200 outline-none focus:border-emerald-400"
+                aria-label="Custom time window unit"
+              >
+                <option value="minutes">min</option>
+                <option value="hours">hrs</option>
+                <option value="days">days</option>
+              </select>
             </div>
             <div className="flex gap-1.5 rounded-xl bg-[#1e1f22]/70 border border-[#3f4147]/30 p-1">
               <button
